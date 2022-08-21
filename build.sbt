@@ -1,7 +1,7 @@
 inThisBuild(
   List(
     organization := "org.polyvariant",
-    homepage := Some(url("https://github.com/polyvariant/todo")),
+    homepage := Some(url("https://github.com/polyvariant/scodec-java-classfile")),
     licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     developers := List(
       Developer(
@@ -17,20 +17,18 @@ inThisBuild(
   )
 )
 
-val Scala212 = "2.12.15"
-val Scala213 = "2.13.7"
+val Scala3 = "3.1.3"
 
 def crossPlugin(x: sbt.librarymanagement.ModuleID) = compilerPlugin(x.cross(CrossVersion.full))
 
 val compilerPlugins = List(
-  crossPlugin("org.typelevel" % "kind-projector" % "0.13.2"),
-  crossPlugin("org.polyvariant" % "better-tostring" % "0.3.11"),
+  crossPlugin("org.polyvariant" % "better-tostring" % "0.3.16")
 )
 
 ThisBuild / versionScheme := Some("early-semver")
 
-ThisBuild / scalaVersion := Scala213
-ThisBuild / crossScalaVersions := Seq(Scala212, Scala213)
+ThisBuild / scalaVersion := Scala3
+ThisBuild / crossScalaVersions := Seq(Scala3)
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -51,10 +49,23 @@ ThisBuild / githubWorkflowPublish := Seq(
   )
 )
 
-val root = project
-  .in(file("."))
+lazy val core = project
   .settings(
-    name := "todo",
+    name := "scodec-java-classfile",
     libraryDependencies ++= Seq(
+      "org.scodec" %% "scodec-core" % "2.2.0",
+      "org.scodec" %% "scodec-cats" % "1.1.0",
+      "co.fs2" %% "fs2-io" % "3.2.12",
+      "com.lihaoyi" %% "pprint" % "0.7.3",
     ) ++ compilerPlugins,
+    scalacOptions -= "-Xfatal-warnings",
   )
+
+lazy val examples = project
+  .settings(publish := {})
+  .dependsOn(core)
+
+lazy val root = project
+  .in(file("."))
+  .settings(publish := {})
+  .aggregate(core, examples)

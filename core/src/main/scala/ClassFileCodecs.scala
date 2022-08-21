@@ -1,9 +1,3 @@
-//> using lib "org.scodec::scodec-core:2.2.0"
-//> using lib "org.scodec::scodec-cats:1.1.0"
-//> using plugin "org.polyvariant:::better-tostring:0.3.16"
-//> using lib "co.fs2::fs2-io:3.2.12"
-//> using lib "com.lihaoyi::pprint:0.7.3"
-//> using scala "3.1.3"
 import fs2.io.file.Files
 import cats.effect.IO
 import fs2.io.file.Path
