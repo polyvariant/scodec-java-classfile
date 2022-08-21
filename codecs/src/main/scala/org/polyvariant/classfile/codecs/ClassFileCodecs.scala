@@ -14,129 +14,27 @@
  * limitations under the License.
  */
 
-package org.polyvariant.classfile
+package org.polyvariant.classfile.codecs
 
-import cats.data.Chain
-import cats.implicits._
-import org.polyvariant.classfile.ScodecUtils._
+import org.polyvariant.classfile._
+import org.polyvariant.classfile.codecs.ScodecUtils._
 import scodec.Codec
 import scodec.Decoder
 import scodec.Encoder
 import scodec.Err
 import scodec.bits.ByteVector
 import scodec.bits._
-import scodec.interop.cats._
 
 import java.nio.charset.StandardCharsets
-
-case class ClassFile(
-  minorVersion: Int,
-  majorVersion: Int,
-  constants: ConstantPool,
-  accessFlags: Set[ClassAccessFlag],
-  thisClass: ConstantIndex,
-  superClass: ConstantIndex,
-  interfaces: List[ConstantIndex],
-  fields: List[FieldInfo],
-  methods: List[MethodInfo],
-  attributes: List[AttributeInfo],
-)
-
-final case class ConstantPool private (private val constants: Array[Constant | Null])
-  extends AnyVal {
-  // ConstantIndex is 1-based, so we subtract 1
-  def apply(index: ConstantIndex): Constant = constants(index.value - 1)
-
-  // Size declared in length byte
-  def declaredSize: Int = constants.length
-
-  // Amount of actual constants inside
-  def realSize: Int = constants.count(_ != null)
-
-  def constantList: List[Constant] = constants.toList.collect { case c: Constant => c }
-}
-
-object ConstantPool {
-
-  def apply(constants: List[Constant]): ConstantPool = apply {
-    constants.flatMap { c =>
-      List(c) ++ List.fill(c.size - 1)(null)
-    }.toArray
-  }
-
-}
-
-case class ConstantIndex(value: Int)
-
-enum Constant {
-
-  def size: Int =
-    this match {
-      case _: LongConstant | _: DoubleConstant => 2
-      case _                                   => 1
-    }
-
-  case Class(nameIndex: ConstantIndex)
-  case FieldRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case MethodRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case InterfaceMethodRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case StringRef(stringIndex: ConstantIndex)
-  case IntConstant(bytes: ByteVector)
-  case FloatConstant(bytes: ByteVector)
-  case LongConstant(highBytes: ByteVector, lowBytes: ByteVector)
-  case DoubleConstant(highBytes: ByteVector, lowBytes: ByteVector)
-  case NameAndType(nameIndex: ConstantIndex, descriptorIndex: ConstantIndex)
-  case Utf8(bytes: ByteVector)
-  case MethodHandle(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
-  case MethodType(descriptorIndex: ConstantIndex)
-  case InvokeDynamic(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
-}
-
-enum ClassAccessFlag {
-  case Public, Final, Super, Interface, Abstract, Synthetic, Annotation, Enum
-}
-
-enum FieldAccessFlag {
-  case Public, Private, Protected, Static, Final, Volatile, Transient, Synthetic, Enum
-}
-
-enum MethodAccessFlag {
-  case Public, Private, Protected, Static, Final, Synchronized, Bridge, Varargs, Native, Abstract,
-    Strict, Synthetic
-}
-
-enum MethodReferenceKind {
-  case GetField, GetStatic, PutField, PutStatic, InvokeVirtual, InvokeStatic, InvokeSpecial,
-    NewInvokeSpecial, InvokeInterface
-}
-
-case class FieldInfo(
-  accessFlags: Set[FieldAccessFlag],
-  nameIndex: ConstantIndex,
-  descriptorIndex: ConstantIndex,
-  attributes: List[AttributeInfo],
-)
-
-case class AttributeInfo(
-  nameIndex: ConstantIndex,
-  info: ByteVector,
-)
-
-case class MethodInfo(
-  accessFlags: Set[MethodAccessFlag],
-  nameIndex: ConstantIndex,
-  descriptorIndex: ConstantIndex,
-  attributes: List[AttributeInfo],
-)
 
 object ClassFileCodecs {
 
   import scodec.codecs._
 
-  private val u1 = byte
-  private val u1Int = uint(8)
-  private val u2 = uint(16)
-  private val u4 = ulong(32)
+  private val u1: Codec[Byte] = byte
+  private val u1Int: Codec[Int] = uint(8)
+  private val u2: Codec[Int] = uint(16)
+  private val u4: Codec[Long] = ulong(32)
 
   private val constantPoolIndex = u2.as[ConstantIndex]
 
@@ -267,7 +165,7 @@ object ClassFileCodecs {
         variableSizeBytesLong(
           "attribute length" | u4,
           "info" | vector(u1),
-        ).imap(ByteVector(_))(_.toArray.toVector)
+        ).xmap(ByteVector(_), _.toArray.toVector)
     ).as[AttributeInfo]
 
   val attributes: Codec[List[AttributeInfo]] =
@@ -291,7 +189,7 @@ object ClassFileCodecs {
     ).as[MethodInfo]
 
   val constantPool: Codec[ConstantPool] = {
-    val c = "constant pool count" | u2.imap(_ - 1)(_ + 1)
+    val c = "constant pool count" | u2.xmap(_ - 1, _ + 1)
 
     weightedN(c, constantEntry)(_.size)
       .xmap(_.toList, _.toVector)

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.polyvariant.classfile.examples
 
 import cats.effect.ExitCode
@@ -23,14 +24,13 @@ import fs2.io.file.Files
 import fs2.io.file.Path
 import org.polyvariant.classfile.AttributeInfo
 import org.polyvariant.classfile.ClassFile
-import org.polyvariant.classfile.ClassFileCodecs
 import org.polyvariant.classfile.Constant
 import org.polyvariant.classfile.ConstantIndex
+import org.polyvariant.classfile.codecs.ClassFileCodecs
 import scodec.Codec
 import scodec.Err
 import scodec.bits.ByteVector
 import scodec.bits._
-import scodec.interop.cats._
 
 import java.nio.charset.StandardCharsets
 import scala.reflect.TypeTest
