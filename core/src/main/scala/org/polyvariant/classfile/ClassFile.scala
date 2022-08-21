@@ -71,28 +71,28 @@ enum Constant {
 
   def size: Int =
     this match {
-      case _: LongConstant | _: DoubleConstant => 2
-      case _                                   => 1
+      case _: LongInfo | _: DoubleInfo => 2
+      case _                           => 1
     }
 
-  case Class(nameIndex: ConstantIndex)
-  case FieldRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case MethodRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case InterfaceMethodRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case StringRef(stringIndex: ConstantIndex)
-  case IntConstant(bytes: ByteVector)
-  case FloatConstant(bytes: ByteVector)
-  case LongConstant(highBytes: ByteVector, lowBytes: ByteVector)
-  case DoubleConstant(highBytes: ByteVector, lowBytes: ByteVector)
-  case NameAndType(nameIndex: ConstantIndex, descriptorIndex: ConstantIndex)
-  case Utf8(bytes: ByteVector)
-  case MethodHandle(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
-  case MethodType(descriptorIndex: ConstantIndex)
-  case InvokeDynamic(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
+  case ClassInfo(nameIndex: ConstantIndex)
+  case FieldRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
+  case MethodRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
+  case InterfaceMethodRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
+  case StringInfo(stringIndex: ConstantIndex)
+  case IntegerInfo(bytes: ByteVector)
+  case FloatInfo(bytes: ByteVector)
+  case LongInfo(highBytes: ByteVector, lowBytes: ByteVector)
+  case DoubleInfo(highBytes: ByteVector, lowBytes: ByteVector)
+  case NameAndTypeInfo(nameIndex: ConstantIndex, descriptorIndex: ConstantIndex)
+  case Utf8Info(bytes: ByteVector)
+  case MethodHandleInfo(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
+  case MethodTypeInfo(descriptorIndex: ConstantIndex)
+  case InvokeDynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
 }
 
 object Constant {
-  extension (utf8: Utf8) def asString: String = new String(utf8.bytes.toArray)
+  extension (utf8: Utf8Info) def asString: String = new String(utf8.bytes.toArray)
 }
 
 enum ClassAccessFlag {
