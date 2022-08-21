@@ -64,3 +64,6 @@ lazy val examples = crossProject(JVMPlatform)
 
 lazy val root = tlCrossRootProject
   .aggregate(core, examples)
+  .settings(
+    Compile / doc / sources := Seq()
+  )
