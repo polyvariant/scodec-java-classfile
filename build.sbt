@@ -49,20 +49,30 @@ ThisBuild / githubWorkflowPublish := Seq(
   )
 )
 
+val commonSettings = Seq(
+  scalacOptions -= "-Xfatal-warnings",
+  libraryDependencies ++= compilerPlugins,
+)
+
 lazy val core = project
   .settings(
     name := "scodec-java-classfile",
     libraryDependencies ++= Seq(
       "org.scodec" %% "scodec-core" % "2.2.0",
       "org.scodec" %% "scodec-cats" % "1.1.0",
-      "co.fs2" %% "fs2-io" % "3.2.12",
-      "com.lihaoyi" %% "pprint" % "0.7.3",
-    ) ++ compilerPlugins,
-    scalacOptions -= "-Xfatal-warnings",
+    ),
+    commonSettings,
   )
 
 lazy val examples = project
-  .settings(publish := {})
+  .settings(
+    publish := {},
+    libraryDependencies ++= Seq(
+      "co.fs2" %% "fs2-io" % "3.2.12",
+      "com.lihaoyi" %% "pprint" % "0.7.3",
+    ),
+    commonSettings,
+  )
   .dependsOn(core)
 
 lazy val root = project

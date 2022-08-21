@@ -1,14 +1,9 @@
-import fs2.io.file.Files
-import cats.effect.IO
-import fs2.io.file.Path
-import cats.effect.IOApp
 import scodec.bits.ByteVector
 import scodec.bits._
 import scodec.Codec
 import cats.implicits._
 import scodec.interop.cats._
 import java.nio.charset.StandardCharsets
-import cats.effect.ExitCode
 import scodec.Err
 import scodec.Encoder
 import scodec.Decoder
