@@ -31,12 +31,11 @@ object ClassFileCodecs {
 
   import scodec.codecs._
 
-  val u1: Codec[Byte] = byte
-  val u1Int: Codec[Int] = uint(8)
+  val u1: Codec[Int] = uint(8)
   val u2: Codec[Int] = uint(16)
   val u4: Codec[Long] = ulong(32)
 
-  private val constantPoolIndex = u2.as[ConstantIndex]
+  val constantPoolIndex: Codec[ConstantIndex] = u2.as[ConstantIndex]
 
   private val fieldRefCommon =
     ("class index" | constantPoolIndex) ::
@@ -73,7 +72,7 @@ object ClassFileCodecs {
 
   val methodHandle: Codec[Constant.MethodHandle] =
     (("reference kind" | mappedEnum(
-      u1Int,
+      u1,
       MethodReferenceKind.values.map(k => k -> k.ordinal).toMap,
     )) ::
       ("reference index" | constantPoolIndex))
@@ -164,8 +163,8 @@ object ClassFileCodecs {
       ("name index" | constantPoolIndex) ::
         variableSizeBytesLong(
           "attribute length" | u4,
-          "info" | vector(u1),
-        ).xmap(ByteVector(_), _.toArray.toVector)
+          "info" | bytes,
+        )
     ).as[AttributeInfo]
 
   val attributes: Codec[List[AttributeInfo]] =

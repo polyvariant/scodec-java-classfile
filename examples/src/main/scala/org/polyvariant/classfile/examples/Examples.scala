@@ -22,11 +22,9 @@ import cats.effect.IOApp
 import cats.implicits._
 import fs2.io.file.Files
 import fs2.io.file.Path
-import org.polyvariant.classfile.AttributeInfo
-import org.polyvariant.classfile.ClassFile
-import org.polyvariant.classfile.Constant
-import org.polyvariant.classfile.ConstantIndex
+import org.polyvariant.classfile._
 import org.polyvariant.classfile.codecs.ClassFileCodecs
+import org.polyvariant.classfile.codecs.InstructionCodecs
 import scodec.Codec
 import scodec.Err
 import scodec.bits.ByteVector
@@ -62,7 +60,7 @@ enum AttributeModel {
   case Code(
     maxStack: Int,
     maxLocals: Int,
-    code: CodeBytes,
+    code: Vector[Instruction],
     exceptionTable: Vector[ExceptionTableEntry],
     attributes: List[AttributeModel],
   )
@@ -74,7 +72,6 @@ enum AttributeModel {
   case Unsupported(name: String, bytes: ByteVector)
 }
 
-case class CodeBytes(bytes: ByteVector)
 case class LineNumberTableEntry(startPc: Int, lineNumber: Int)
 case class ExceptionTableEntry(startPc: Int, endPc: Int, handlerPc: Int, catchType: Int)
 
@@ -95,6 +92,7 @@ object Examples extends IOApp {
   object AttributeCodecs {
     import scodec.codecs._
     import ClassFileCodecs._
+    import InstructionCodecs._
 
     def code(cp: ConstantPool): Codec[AttributeModel.Code] =
       (
@@ -102,8 +100,8 @@ object Examples extends IOApp {
           ("max locals" | u2) ::
           variableSizeBytesLong(
             "code length" | u4,
-            "code" | vector(u1),
-          ).xmap(bytes => CodeBytes(ByteVector(bytes)), _.bytes.toArray.toVector) ::
+            "code" | vector(instruction),
+          ) ::
           vectorOfN(
             "exception table" | u2,
             (
@@ -201,7 +199,7 @@ object Examples extends IOApp {
     .map(
       _.map(
         pprint
-          .copy(additionalHandlers = { case c: CodeBytes => Literal(c.bytes.toHex) })
+          // .copy(additionalHandlers = { case c: CodeBytes => Literal(c.bytes.toHexDump) })
           .apply(_)
       )
     )
