@@ -55,7 +55,7 @@ enum AttributeModel {
       case u: Unsupported     => u.name
     }
 
-  def attrNameConstant: Constant.Utf8 = Constant.Utf8(ByteVector(attrName.getBytes()))
+  def attrNameConstant: Constant.Utf8Info = Constant.Utf8Info(ByteVector(attrName.getBytes()))
 
   case Code(
     maxStack: Int,
@@ -85,8 +85,8 @@ object Examples extends IOApp {
       using tt: TypeTest[Constant, A]
     ): A =
       cp(index) match {
-        case t: A              => t
-        case Constant.Class(i) => cp.resolve(i)
+        case t: A                  => t
+        case Constant.ClassInfo(i) => cp.resolve(i)
       }
 
   object AttributeCodecs {
@@ -147,7 +147,7 @@ object Examples extends IOApp {
       attributes: List[AttributeInfo],
       cp: ConstantPool,
     ): List[AttributeModel] = attributes.map { a =>
-      val name = cp.resolve[Constant.Utf8](a.nameIndex).asString
+      val name = cp.resolve[Constant.Utf8Info](a.nameIndex).asString
 
       attribute(name, cp).decodeValue(a.info.bits).require
     }
@@ -156,7 +156,7 @@ object Examples extends IOApp {
 
   def decode(cf: ClassFile): ClassModel = {
     def resolve(ci: ConstantIndex) = cf.constants(ci)
-    def r(ci: ConstantIndex): String = cf.constants.resolve[Constant.Utf8](ci).asString
+    def r(ci: ConstantIndex): String = cf.constants.resolve[Constant.Utf8Info](ci).asString
 
     ClassModel(
       r(cf.thisClass),
