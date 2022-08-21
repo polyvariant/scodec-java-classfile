@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-import scodec.bits.ByteVector
+package org.polyvariant.classfile
 
-import scodec.bits._
-import scodec.Codec
-import cats.implicits._
-import scodec.interop.cats._
-import java.nio.charset.StandardCharsets
-import scodec.Err
-import scodec.Encoder
-import scodec.Decoder
 import cats.data.Chain
+import cats.implicits._
+import org.polyvariant.classfile.ScodecUtils._
+import scodec.Codec
+import scodec.Decoder
+import scodec.Encoder
+import scodec.Err
+import scodec.bits.ByteVector
+import scodec.bits._
+import scodec.interop.cats._
+
+import java.nio.charset.StandardCharsets
 
 case class ClassFile(
   minorVersion: Int,
@@ -129,16 +132,6 @@ case class MethodInfo(
 object ClassFileCodecs {
 
   import scodec.codecs._
-
-  private def masked[A](range: Codec[Int], valuesWithMasks: Map[A, Int]): Codec[Set[A]] =
-    range
-      .imap { v =>
-        valuesWithMasks.collect {
-          case (flag, mask) if (mask & v) == mask => flag
-        }.toSet
-      } { flags =>
-        flags.map(flag => valuesWithMasks(flag)).foldLeft(0)(_ | _)
-      }
 
   private val u1 = byte
   private val u1Int = uint(8)
@@ -296,28 +289,6 @@ object ClassFileCodecs {
         ("descriptor index" | constantPoolIndex) ::
         attributes
     ).as[MethodInfo]
-
-  def weightedN[A](n: Codec[Int], item: Codec[A])(weight: A => Int): Codec[Vector[A]] =
-    "weightedN" | {
-
-      def go(remaining: Int): Decoder[List[A]] =
-        remaining match {
-          case 0 => Decoder.pure(Nil)
-          case n =>
-            item
-              .flatMap { a =>
-                go(remaining - weight(a)).map(a :: _)
-              }
-        }
-
-      logToStdOut(n).consume { size =>
-        val encoder: Encoder[Vector[A]] = vector(item)
-
-        val decoder = go(size).map(_.toVector)
-
-        Codec(encoder, decoder)
-      }(_.foldMap(weight))
-    }
 
   val constantPool: Codec[ConstantPool] = {
     val c = "constant pool count" | u2.imap(_ - 1)(_ + 1)

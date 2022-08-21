@@ -13,20 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.polyvariant.classfile.examples
 
-import fs2.io.file.Files
-
+import cats.effect.ExitCode
 import cats.effect.IO
-import fs2.io.file.Path
 import cats.effect.IOApp
+import cats.implicits._
+import fs2.io.file.Files
+import fs2.io.file.Path
+import org.polyvariant.classfile.AttributeInfo
+import org.polyvariant.classfile.ClassFile
+import org.polyvariant.classfile.ClassFileCodecs
+import org.polyvariant.classfile.Constant
+import org.polyvariant.classfile.ConstantIndex
+import scodec.Codec
+import scodec.Err
 import scodec.bits.ByteVector
 import scodec.bits._
-import scodec.Codec
-import cats.implicits._
 import scodec.interop.cats._
+
 import java.nio.charset.StandardCharsets
-import cats.effect.ExitCode
-import scodec.Err
 import scala.reflect.TypeTest
 
 case class ClassModel(
@@ -41,7 +47,7 @@ case class MethodModel(name: String, descriptor: String, attributes: List[Attrib
 
 case class AttributeModel(name: String)
 
-object Main extends IOApp {
+object Examples extends IOApp {
 
   def decode(cf: ClassFile): ClassModel = {
     def resolve(ci: ConstantIndex) = cf.constants(ci)
