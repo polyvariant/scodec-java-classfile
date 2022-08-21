@@ -1,3 +1,3 @@
-# library-template
+# scodec-java-classfile
 
-Template for polyvariant libraries. Click "use this template" in Github's UI and replace all the TODOs with the right name.
+Scodec implementation of a Java Classfile parser in Scala 3.

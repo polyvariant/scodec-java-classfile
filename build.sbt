@@ -1,60 +1,66 @@
-inThisBuild(
-  List(
-    organization := "org.polyvariant",
-    homepage := Some(url("https://github.com/polyvariant/todo")),
-    licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
-    developers := List(
-      Developer(
-        "kubukoz",
-        "Jakub Kozłowski",
-        "kubukoz@gmail.com",
-        url("https://blog.kubukoz.com"),
-      )
-    ),
-    Compile / doc / sources := Seq(),
-    sonatypeCredentialHost := "s01.oss.sonatype.org",
-    sonatypeRepository := "https://s01.oss.sonatype.org/service/local",
-  )
-)
-
-val Scala212 = "2.12.15"
-val Scala213 = "2.13.7"
+ThisBuild / tlBaseVersion := "0.1"
+ThisBuild / organization := "org.polyvariant.scodec-java-classfile"
+ThisBuild / organizationName := "Polyvariant"
+ThisBuild / startYear := Some(2022)
+ThisBuild / licenses := Seq(License.Apache2)
+ThisBuild / developers := List(tlGitHubDev("kubukoz", "Jakub Kozłowski"))
+ThisBuild / tlSonatypeUseLegacyHost := false
 
 def crossPlugin(x: sbt.librarymanagement.ModuleID) = compilerPlugin(x.cross(CrossVersion.full))
 
 val compilerPlugins = List(
-  crossPlugin("org.typelevel" % "kind-projector" % "0.13.2"),
-  crossPlugin("org.polyvariant" % "better-tostring" % "0.3.11"),
+  crossPlugin("org.polyvariant" % "better-tostring" % "0.3.16")
 )
 
-ThisBuild / versionScheme := Some("early-semver")
+val Scala3 = "3.1.3"
 
-ThisBuild / scalaVersion := Scala213
-ThisBuild / crossScalaVersions := Seq(Scala212, Scala213)
+ThisBuild / scalaVersion := Scala3
+ThisBuild / crossScalaVersions := Seq(Scala3)
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / githubWorkflowTargetTags ++= Seq("v*")
-ThisBuild / githubWorkflowPublishTargetBranches += RefPredicate.StartsWith(Ref.Tag("v"))
-ThisBuild / githubWorkflowPublish := Seq(
-  WorkflowStep.Sbt(
-    List("ci-release"),
-    env =
-      List(
-        "PGP_PASSPHRASE",
-        "PGP_SECRET",
-        "SONATYPE_PASSWORD",
-        "SONATYPE_USERNAME",
-      ).map { envKey =>
-        envKey -> s"$${{ secrets.$envKey }}"
-      }.toMap,
-  )
+ThisBuild / tlFatalWarnings := false
+ThisBuild / tlFatalWarningsInCi := false
+
+val commonSettings = Seq(
+  libraryDependencies ++= compilerPlugins ++ Seq(
+    "com.disneystreaming" %%% "weaver-cats" % "0.7.15" % Test,
+    "com.disneystreaming" %%% "weaver-discipline" % "0.7.15" % Test,
+    "com.disneystreaming" %%% "weaver-scalacheck" % "0.7.15" % Test,
+  ),
+  testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
 )
 
-val root = project
-  .in(file("."))
+lazy val core = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
   .settings(
-    name := "todo",
+    commonSettings,
     libraryDependencies ++= Seq(
-    ) ++ compilerPlugins,
+      "org.scodec" %%% "scodec-bits" % "1.1.34"
+    ),
   )
+
+lazy val codecs = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
+  .settings(
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "org.scodec" %%% "scodec-core" % "2.2.0"
+    ),
+  )
+  .dependsOn(core)
+
+lazy val examples = crossProject(JVMPlatform)
+  .crossType(CrossType.Pure)
+  .settings(
+    libraryDependencies ++= Seq(
+      "co.fs2" %%% "fs2-io" % "3.2.12",
+      "com.lihaoyi" %%% "pprint" % "0.7.3",
+    ),
+    commonSettings,
+  )
+  .dependsOn(codecs)
+  .enablePlugins(NoPublishPlugin)
+
+lazy val root = tlCrossRootProject
+  .aggregate(core, examples)
