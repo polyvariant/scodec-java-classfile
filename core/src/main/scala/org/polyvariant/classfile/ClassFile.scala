@@ -46,6 +46,13 @@ final case class ConstantPool private (private val constants: Array[Constant | N
   def realSize: Int = constants.count(_ != null)
 
   def constantList: List[Constant] = constants.toList.collect { case c: Constant => c }
+
+  def indexOf(constant: Constant): Option[ConstantIndex] =
+    constants.indexOf(constant) match {
+      case -1 => None
+      case i  => Some(ConstantIndex(i + 1))
+    }
+
 }
 
 object ConstantPool {
@@ -82,6 +89,10 @@ enum Constant {
   case MethodHandle(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
   case MethodType(descriptorIndex: ConstantIndex)
   case InvokeDynamic(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
+}
+
+object Constant {
+  extension (utf8: Utf8) def asString: String = new String(utf8.bytes.toArray)
 }
 
 enum ClassAccessFlag {
