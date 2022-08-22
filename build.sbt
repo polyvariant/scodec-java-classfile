@@ -63,7 +63,7 @@ lazy val examples = crossProject(JVMPlatform)
   .enablePlugins(NoPublishPlugin)
 
 lazy val root = tlCrossRootProject
-  .aggregate(core, examples)
+  .aggregate(codecs, examples)
   .settings(
     Compile / doc / sources := Seq(),
     sonatypeProfileName := "org.polyvariant",
