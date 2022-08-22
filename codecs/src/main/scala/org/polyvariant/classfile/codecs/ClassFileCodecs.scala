@@ -98,10 +98,20 @@ object ClassFileCodecs {
       ("reference index" | constantPoolIndex))
       .as[Constant.MethodHandleInfo]
 
-  val invokeDynamic: Codec[Constant.InvokeDynamicInfo] =
-    (("bootstrap method attr index" | u2) ::
-      ("name and type index" | constantPoolIndex))
-      .as[Constant.InvokeDynamicInfo]
+  private val dynamicCommon =
+    ("bootstrap method attr index" | u2) ::
+      ("name and type index" | constantPoolIndex)
+
+  val dynamic: Codec[Constant.DynamicInfo] = dynamicCommon.as[Constant.DynamicInfo]
+
+  val invokeDynamic: Codec[Constant.InvokeDynamicInfo] = dynamicCommon
+    .as[Constant.InvokeDynamicInfo]
+
+  val module: Codec[Constant.ModuleInfo] = ("name index" | constantPoolIndex)
+    .as[Constant.ModuleInfo]
+
+  val pkg: Codec[Constant.PackageInfo] = ("name index" | constantPoolIndex)
+    .as[Constant.PackageInfo]
 
   val constantEntry: Codec[Constant] =
     "constant pool entry" |
@@ -120,7 +130,10 @@ object ClassFileCodecs {
         .typecase(1, utf8Constant)
         .typecase(15, methodHandle)
         .typecase(16, methodType)
+        .typecase(17, dynamic)
         .typecase(18, invokeDynamic)
+        .typecase(19, module)
+        .typecase(20, pkg)
 
   val classAccessFlags: Codec[Set[ClassAccessFlag]] = {
     import ClassAccessFlag._

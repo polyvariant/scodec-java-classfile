@@ -111,7 +111,10 @@ enum Constant {
   case Utf8Info(bytes: String)
   case MethodHandleInfo(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
   case MethodTypeInfo(descriptorIndex: ConstantIndex)
+  case DynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
   case InvokeDynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
+  case ModuleInfo(nameIndex: ConstantIndex)
+  case PackageInfo(nameIndex: ConstantIndex)
 }
 
 object Constant {
