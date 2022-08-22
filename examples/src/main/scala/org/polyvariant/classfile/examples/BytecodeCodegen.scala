@@ -182,6 +182,8 @@ object BytecodeCodegen extends IOApp.Simple {
       )
   }
 
+  pprint.pprintln(cf)
+
   val bytes =
     ClassFileCodecs
       .classFile
