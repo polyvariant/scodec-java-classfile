@@ -31,58 +31,87 @@ object ClassFileCodecs {
 
   import scodec.codecs._
 
-  private val u1: Codec[Byte] = byte
-  private val u1Int: Codec[Int] = uint(8)
-  private val u2: Codec[Int] = uint(16)
-  private val u4: Codec[Long] = ulong(32)
+  val u1: Codec[Short] = ushort(8)
+  val u2: Codec[Int] = uint(16)
+  val u4: Codec[Long] = ulong(32)
 
-  private val constantPoolIndex = u2.as[ConstantIndex]
+  val constantPoolIndex: Codec[ConstantIndex] = u2.as[ConstantIndex]
+  val constantPoolIndexNarrow: Codec[ConstantIndexNarrow] = u1.as[ConstantIndexNarrow]
 
   private val fieldRefCommon =
     ("class index" | constantPoolIndex) ::
       ("name and type index" | constantPoolIndex)
 
-  val methodRef: Codec[Constant.MethodRef] = fieldRefCommon.as[Constant.MethodRef]
-  val fieldRef: Codec[Constant.FieldRef] = fieldRefCommon.as[Constant.FieldRef]
-  val interfaceMethodRef: Codec[Constant.InterfaceMethodRef] = fieldRefCommon
-    .as[Constant.InterfaceMethodRef]
+  val methodRef: Codec[Constant.MethodRefInfo] = fieldRefCommon.as[Constant.MethodRefInfo]
+  val fieldRef: Codec[Constant.FieldRefInfo] = fieldRefCommon.as[Constant.FieldRefInfo]
+  val interfaceMethodRef: Codec[Constant.InterfaceMethodRefInfo] = fieldRefCommon
+    .as[Constant.InterfaceMethodRefInfo]
 
-  val nameAndType: Codec[Constant.NameAndType] =
+  val nameAndType: Codec[Constant.NameAndTypeInfo] =
     (("name index" | constantPoolIndex) :: ("descriptor index" | constantPoolIndex))
-      .as[Constant.NameAndType]
+      .as[Constant.NameAndTypeInfo]
 
-  val classConstant: Codec[Constant.Class] = ("name index" | constantPoolIndex).as[Constant.Class]
+  val classConstant: Codec[Constant.ClassInfo] = ("name index" | constantPoolIndex)
+    .as[Constant.ClassInfo]
 
-  val utf8Constant: Codec[Constant.Utf8] = ("length" | u2)
+  // def encodeString(s: String) = {
+  // val charArray = s
+  //   .chars()
+  //   .toArray()
+  // charArray
+  //   .map {
+  //     case b if ('\u0001'.toInt to '\u007F'.toInt).contains(b) =>
+  //       (bin"0" ++ ubyte(7).encode(b.toByte).require).bytes
+  //     case b if b == '\u0000'.toInt || ('\u0080'.toInt to '\u07FF'.toInt).contains(b) =>
+  //       sys.error(s"unsupported #1 ($s): $b")
+  //     case b if ('\u0800'.toInt to '\uFFFF'.toInt).contains(b) =>
+  //       sys.error(s"unsupported #2 ($s): $b")
+  //   }
+  //   .foldLeft(ByteVector.empty)(_ ++ _)
+  // }
+
+  val utf8Constant: Codec[Constant.Utf8Info] = ("length" | u2)
     .consume(bytes(_))(_.size.toInt)
-    .as[Constant.Utf8]
+    // this will need some attention to ensure full compatibility
+    .xmap(bytes => new String(bytes.toArray), s => ByteVector(s.getBytes()))
+    .as[Constant.Utf8Info]
 
-  val stringConstant: Codec[Constant.StringRef] = ("string index" | constantPoolIndex)
-    .as[Constant.StringRef]
+  val stringConstant: Codec[Constant.StringInfo] = ("string index" | constantPoolIndex)
+    .as[Constant.StringInfo]
 
   private val numeric = "bytes" | bytes(4)
   private val bigNumeric = ("high bytes" | bytes(4)) :: ("low bytes" | bytes(4))
 
-  val intConstant: Codec[Constant.IntConstant] = numeric.as[Constant.IntConstant]
-  val floatConstant: Codec[Constant.FloatConstant] = numeric.as[Constant.FloatConstant]
-  val longConstant: Codec[Constant.LongConstant] = bigNumeric.as[Constant.LongConstant]
-  val doubleConstant: Codec[Constant.DoubleConstant] = bigNumeric.as[Constant.DoubleConstant]
+  val intConstant: Codec[Constant.IntegerInfo] = numeric.as[Constant.IntegerInfo]
+  val floatConstant: Codec[Constant.FloatInfo] = numeric.as[Constant.FloatInfo]
+  val longConstant: Codec[Constant.LongInfo] = bigNumeric.as[Constant.LongInfo]
+  val doubleConstant: Codec[Constant.DoubleInfo] = bigNumeric.as[Constant.DoubleInfo]
 
-  val methodType: Codec[Constant.MethodType] = ("descriptor index" | constantPoolIndex)
-    .as[Constant.MethodType]
+  val methodType: Codec[Constant.MethodTypeInfo] = ("descriptor index" | constantPoolIndex)
+    .as[Constant.MethodTypeInfo]
 
-  val methodHandle: Codec[Constant.MethodHandle] =
+  val methodHandle: Codec[Constant.MethodHandleInfo] =
     (("reference kind" | mappedEnum(
-      u1Int,
-      MethodReferenceKind.values.map(k => k -> k.ordinal).toMap,
+      u1,
+      MethodReferenceKind.values.map(k => k -> k.ordinal.toShort).toMap,
     )) ::
       ("reference index" | constantPoolIndex))
-      .as[Constant.MethodHandle]
+      .as[Constant.MethodHandleInfo]
 
-  val invokeDynamic: Codec[Constant.InvokeDynamic] =
-    (("bootstrap method attr index" | u2) ::
-      ("name and type index" | constantPoolIndex))
-      .as[Constant.InvokeDynamic]
+  private val dynamicCommon =
+    ("bootstrap method attr index" | u2) ::
+      ("name and type index" | constantPoolIndex)
+
+  val dynamic: Codec[Constant.DynamicInfo] = dynamicCommon.as[Constant.DynamicInfo]
+
+  val invokeDynamic: Codec[Constant.InvokeDynamicInfo] = dynamicCommon
+    .as[Constant.InvokeDynamicInfo]
+
+  val module: Codec[Constant.ModuleInfo] = ("name index" | constantPoolIndex)
+    .as[Constant.ModuleInfo]
+
+  val pkg: Codec[Constant.PackageInfo] = ("name index" | constantPoolIndex)
+    .as[Constant.PackageInfo]
 
   val constantEntry: Codec[Constant] =
     "constant pool entry" |
@@ -101,7 +130,10 @@ object ClassFileCodecs {
         .typecase(1, utf8Constant)
         .typecase(15, methodHandle)
         .typecase(16, methodType)
+        .typecase(17, dynamic)
         .typecase(18, invokeDynamic)
+        .typecase(19, module)
+        .typecase(20, pkg)
 
   val classAccessFlags: Codec[Set[ClassAccessFlag]] = {
     import ClassAccessFlag._
@@ -164,8 +196,8 @@ object ClassFileCodecs {
       ("name index" | constantPoolIndex) ::
         variableSizeBytesLong(
           "attribute length" | u4,
-          "info" | vector(u1),
-        ).xmap(ByteVector(_), _.toArray.toVector)
+          "info" | bytes,
+        )
     ).as[AttributeInfo]
 
   val attributes: Codec[List[AttributeInfo]] =

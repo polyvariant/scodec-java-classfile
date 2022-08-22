@@ -46,42 +46,80 @@ final case class ConstantPool private (private val constants: Array[Constant | N
   def realSize: Int = constants.count(_ != null)
 
   def constantList: List[Constant] = constants.toList.collect { case c: Constant => c }
+
+  def indexOf(constant: Constant): Option[ConstantIndex] =
+    constants.indexOf(constant) match {
+      case -1 => None
+      case i  => Some(ConstantIndex(i + 1))
+    }
+
+  override def equals(another: Any): Boolean =
+    another match {
+      case that: ConstantPool => this.constantList == that.constantList
+      case _                  => false
+    }
+
+  def append(c: Constant): ConstantPool = ConstantPool.apply(constantList.appended(c))
+
 }
 
 object ConstantPool {
 
-  def apply(constants: List[Constant]): ConstantPool = apply {
-    constants.flatMap { c =>
-      List(c) ++ List.fill(c.size - 1)(null)
-    }.toArray
-  }
+  def apply(constants: List[Constant]): ConstantPool =
+    new ConstantPool(
+      constants.flatMap { c =>
+        List(c) ++ List.fill(c.size - 1)(null)
+      }.toArray
+    )
 
 }
 
-case class ConstantIndex(value: Int)
+case class ConstantIndex(value: Int) {
+
+  def toNarrowEither: Either[this.type, ConstantIndexNarrow] =
+    if (value.isValidShort)
+      Right(ConstantIndexNarrow(value.toShort))
+    else
+      Left(this)
+
+}
+
+case class ConstantIndexNarrow(value: Short)
+
+object ConstantIndex {
+  val init: ConstantIndex = ConstantIndex(1)
+}
 
 enum Constant {
 
   def size: Int =
     this match {
-      case _: LongConstant | _: DoubleConstant => 2
-      case _                                   => 1
+      case _: LongInfo | _: DoubleInfo => 2
+      case _                           => 1
     }
 
-  case Class(nameIndex: ConstantIndex)
-  case FieldRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case MethodRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case InterfaceMethodRef(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case StringRef(stringIndex: ConstantIndex)
-  case IntConstant(bytes: ByteVector)
-  case FloatConstant(bytes: ByteVector)
-  case LongConstant(highBytes: ByteVector, lowBytes: ByteVector)
-  case DoubleConstant(highBytes: ByteVector, lowBytes: ByteVector)
-  case NameAndType(nameIndex: ConstantIndex, descriptorIndex: ConstantIndex)
-  case Utf8(bytes: ByteVector)
-  case MethodHandle(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
-  case MethodType(descriptorIndex: ConstantIndex)
-  case InvokeDynamic(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
+  case ClassInfo(nameIndex: ConstantIndex)
+  case FieldRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
+  case MethodRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
+  case InterfaceMethodRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
+  case StringInfo(stringIndex: ConstantIndex)
+  case IntegerInfo(bytes: ByteVector)
+  case FloatInfo(bytes: ByteVector)
+  case LongInfo(highBytes: ByteVector, lowBytes: ByteVector)
+  case DoubleInfo(highBytes: ByteVector, lowBytes: ByteVector)
+  case NameAndTypeInfo(nameIndex: ConstantIndex, descriptorIndex: ConstantIndex)
+  case Utf8Info(bytes: String)
+  case MethodHandleInfo(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
+  case MethodTypeInfo(descriptorIndex: ConstantIndex)
+  case DynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
+  case InvokeDynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
+  case ModuleInfo(nameIndex: ConstantIndex)
+  case PackageInfo(nameIndex: ConstantIndex)
+}
+
+object Constant {
+  extension (utf8: Utf8Info) def asString: String = new String(utf8.bytes.toArray)
+
 }
 
 enum ClassAccessFlag {

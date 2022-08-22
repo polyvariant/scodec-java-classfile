@@ -21,13 +21,13 @@ import org.polyvariant.classfile._
 import scodec.bits.ByteVector
 
 object ConstantPoolTests extends FunSuite {
-  val anInt = Constant.IntConstant(ByteVector.empty)
-  val aMethodType = Constant.MethodType(ConstantIndex(2))
+  val anInt = Constant.IntegerInfo(ByteVector.empty)
+  val aMethodType = Constant.MethodTypeInfo(ConstantIndex(2))
 
   val aConstantPool = ConstantPool(
     List(
       anInt,
-      Constant.LongConstant(ByteVector.empty, ByteVector.empty),
+      Constant.LongInfo(ByteVector.empty, ByteVector.empty),
       aMethodType,
     )
   )
