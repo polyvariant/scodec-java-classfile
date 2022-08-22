@@ -111,7 +111,7 @@ enum Instruction {
   case ineg
   case instanceof(index: ConstantIndex)
   case invokedynamic(index: ConstantIndex)
-  case invokeinterface(index: ConstantIndex, count: Int)
+  case invokeinterface(index: ConstantIndex, count: Short)
   case invokespecial(index: ConstantIndex)
   case invokestatic(index: ConstantIndex)
   case invokevirtual(index: ConstantIndex)
@@ -136,7 +136,7 @@ enum Instruction {
   case lastore
   case lcmp
   case lconst_0, lconst_1
-  case ldc(index: ConstantIndex)
+  case ldc(index: ConstantIndexNarrow)
   case ldc_w(index: ConstantIndex)
   case ldc2_w(index: ConstantIndex)
   case ldiv
@@ -157,7 +157,7 @@ enum Instruction {
   case lxor
   case monitorenter
   case monitorexit
-  case multianewarray(index: ConstantIndex, dimensions: Int)
+  case multianewarray(index: ConstantIndex, dimensions: Short)
   case _new(index: ConstantIndex)
   case newarray(atype: ArrayType)
   case nop
@@ -177,7 +177,7 @@ enum Instruction {
 
 case class Offset(value: Int)
 case class OffsetWide(value: Long)
-case class LocalVariableIndex(value: Int)
+case class LocalVariableIndex(value: Short)
 
 enum ArrayType {
   case T_BOOLEAN, T_CHAR, T_FLOAT, T_DOUBLE, T_BYTE, T_SHORT, T_INT, T_LONG

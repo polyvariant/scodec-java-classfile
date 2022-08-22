@@ -53,19 +53,42 @@ final case class ConstantPool private (private val constants: Array[Constant | N
       case i  => Some(ConstantIndex(i + 1))
     }
 
+  override def equals(another: Any): Boolean =
+    another match {
+      case that: ConstantPool => this.constantList == that.constantList
+      case _                  => false
+    }
+
+  def append(c: Constant): ConstantPool = ConstantPool.apply(constantList.appended(c))
+
 }
 
 object ConstantPool {
 
-  def apply(constants: List[Constant]): ConstantPool = apply {
-    constants.flatMap { c =>
-      List(c) ++ List.fill(c.size - 1)(null)
-    }.toArray
-  }
+  def apply(constants: List[Constant]): ConstantPool =
+    new ConstantPool(
+      constants.flatMap { c =>
+        List(c) ++ List.fill(c.size - 1)(null)
+      }.toArray
+    )
 
 }
 
-case class ConstantIndex(value: Int)
+case class ConstantIndex(value: Int) {
+
+  def toNarrowEither: Either[this.type, ConstantIndexNarrow] =
+    if (value.isValidShort)
+      Right(ConstantIndexNarrow(value.toShort))
+    else
+      Left(this)
+
+}
+
+case class ConstantIndexNarrow(value: Short)
+
+object ConstantIndex {
+  val init: ConstantIndex = ConstantIndex(1)
+}
 
 enum Constant {
 
@@ -85,7 +108,7 @@ enum Constant {
   case LongInfo(highBytes: ByteVector, lowBytes: ByteVector)
   case DoubleInfo(highBytes: ByteVector, lowBytes: ByteVector)
   case NameAndTypeInfo(nameIndex: ConstantIndex, descriptorIndex: ConstantIndex)
-  case Utf8Info(bytes: ByteVector)
+  case Utf8Info(bytes: String)
   case MethodHandleInfo(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
   case MethodTypeInfo(descriptorIndex: ConstantIndex)
   case InvokeDynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
@@ -93,6 +116,7 @@ enum Constant {
 
 object Constant {
   extension (utf8: Utf8Info) def asString: String = new String(utf8.bytes.toArray)
+
 }
 
 enum ClassAccessFlag {

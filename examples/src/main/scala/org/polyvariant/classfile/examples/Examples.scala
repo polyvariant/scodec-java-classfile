@@ -22,9 +22,12 @@ import cats.effect.IOApp
 import cats.implicits._
 import fs2.io.file.Files
 import fs2.io.file.Path
+import org.polyvariant.classfile.ConstantPool
 import org.polyvariant.classfile._
 import org.polyvariant.classfile.codecs.ClassFileCodecs
 import org.polyvariant.classfile.codecs.InstructionCodecs
+import pprint.Tree.KeyValue
+import pprint.Tree.Literal
 import scodec.Codec
 import scodec.Err
 import scodec.bits.ByteVector
@@ -32,15 +35,13 @@ import scodec.bits._
 
 import java.nio.charset.StandardCharsets
 import scala.reflect.TypeTest
-import org.polyvariant.classfile.ConstantPool
-import pprint.Tree.KeyValue
-import pprint.Tree.Literal
 
 case class ClassModel(
   thisClass: String,
   superClass: String,
   fields: List[FieldModel],
   methods: List[MethodModel],
+  attributes: List[AttributeModel],
 )
 
 case class FieldModel(name: String, descriptor: String, attributes: List[AttributeModel])
@@ -52,10 +53,11 @@ enum AttributeModel {
     this match {
       case _: Code            => "Code"
       case _: LineNumberTable => "LineNumberTable"
+      case _: SourceFile      => "SourceFile"
       case u: Unsupported     => u.name
     }
 
-  def attrNameConstant: Constant.Utf8Info = Constant.Utf8Info(ByteVector(attrName.getBytes()))
+  def attrNameConstant: Constant.Utf8Info = Constant.Utf8Info(attrName)
 
   case Code(
     maxStack: Int,
@@ -69,6 +71,8 @@ enum AttributeModel {
     entries: Vector[LineNumberTableEntry]
   )
 
+  case SourceFile(name: String)
+
   case Unsupported(name: String, bytes: ByteVector)
 }
 
@@ -79,7 +83,7 @@ object Examples extends IOApp {
 
   extension (cp: ConstantPool)
 
-    def resolve[A](
+    def resolve[A <: Constant](
       index: ConstantIndex
     )(
       using tt: TypeTest[Constant, A]
@@ -103,7 +107,7 @@ object Examples extends IOApp {
             "code" | vector(instruction),
           ) ::
           vectorOfN(
-            "exception table" | u2,
+            "exception table length" | u2,
             (
               ("start pc" | u2) ::
                 ("end pc" | u2) ::
@@ -111,7 +115,7 @@ object Examples extends IOApp {
                 ("catch type" | u2)
             ).as[ExceptionTableEntry],
           ) ::
-          attributes.xmap(decodeAttrs(_, cp), encodeAttrs(_, cp))
+          attributes.xmap(decodeAttrs(_, cp), encodeAttrs(_, cp)),
       ).dropUnits.as[AttributeModel.Code]
 
     val lineNumberTable: Codec[AttributeModel.LineNumberTable] = vectorOfN(
@@ -119,6 +123,15 @@ object Examples extends IOApp {
       (("start pc" | u2) ::
         ("line number" | u2)).as[LineNumberTableEntry],
     ).as[AttributeModel.LineNumberTable]
+
+    def sourceFile(
+      cp: ConstantPool
+    ): Codec[AttributeModel.SourceFile] = ("name index" | constantPoolIndex)
+      .xmap(
+        cp.resolve[Constant.Utf8Info](_).asString,
+        s => cp.indexOf(Constant.Utf8Info(s)).getOrElse(sys.error(s"constant not found: $s (utf8)")),
+      )
+      .as[AttributeModel.SourceFile]
 
     def attribute(name: String, cp: ConstantPool): Codec[AttributeModel] = {
       val default = bytes
@@ -128,17 +141,18 @@ object Examples extends IOApp {
       Map(
         "Code" -> code(cp).upcast[AttributeModel],
         "LineNumberTable" -> lineNumberTable.upcast[AttributeModel],
+        "SourceFile" -> sourceFile(cp).upcast[AttributeModel],
       )
         .get(name)
         .getOrElse(default)
     }
 
-    private def encodeAttrs(
+    def encodeAttrs(
       attributes: List[AttributeModel],
       cp: ConstantPool,
     ): List[AttributeInfo] = attributes.map { a =>
       AttributeInfo(
-        cp.indexOf(a.attrNameConstant).getOrElse(sys.error("constant not found")),
+        cp.indexOf(a.attrNameConstant).getOrElse(sys.error(s"constant not found: ${a.attrName}")),
         AttributeCodecs.attribute(a.attrName, cp).encode(a).require.bytes,
       )
     }
@@ -177,6 +191,7 @@ object Examples extends IOApp {
             AttributeCodecs.decodeAttrs(m.attributes, cf.constants),
           )
         ),
+      AttributeCodecs.decodeAttrs(cf.attributes, cf.constants),
     )
   }
 
@@ -194,7 +209,7 @@ object Examples extends IOApp {
         .decode(bits)
         .map(_.value)
         .map(decode)
-        .map(_.methods.map(f => f.name -> f.attributes))
+      // .map(_.methods.map(f => f.name -> f.attributes))
     }
     .map(
       _.map(

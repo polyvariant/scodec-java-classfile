@@ -31,11 +31,12 @@ object ClassFileCodecs {
 
   import scodec.codecs._
 
-  val u1: Codec[Int] = uint(8)
+  val u1: Codec[Short] = ushort(8)
   val u2: Codec[Int] = uint(16)
   val u4: Codec[Long] = ulong(32)
 
   val constantPoolIndex: Codec[ConstantIndex] = u2.as[ConstantIndex]
+  val constantPoolIndexNarrow: Codec[ConstantIndexNarrow] = u1.as[ConstantIndexNarrow]
 
   private val fieldRefCommon =
     ("class index" | constantPoolIndex) ::
@@ -53,8 +54,26 @@ object ClassFileCodecs {
   val classConstant: Codec[Constant.ClassInfo] = ("name index" | constantPoolIndex)
     .as[Constant.ClassInfo]
 
+  // def encodeString(s: String) = {
+  // val charArray = s
+  //   .chars()
+  //   .toArray()
+  // charArray
+  //   .map {
+  //     case b if ('\u0001'.toInt to '\u007F'.toInt).contains(b) =>
+  //       (bin"0" ++ ubyte(7).encode(b.toByte).require).bytes
+  //     case b if b == '\u0000'.toInt || ('\u0080'.toInt to '\u07FF'.toInt).contains(b) =>
+  //       sys.error(s"unsupported #1 ($s): $b")
+  //     case b if ('\u0800'.toInt to '\uFFFF'.toInt).contains(b) =>
+  //       sys.error(s"unsupported #2 ($s): $b")
+  //   }
+  //   .foldLeft(ByteVector.empty)(_ ++ _)
+  // }
+
   val utf8Constant: Codec[Constant.Utf8Info] = ("length" | u2)
     .consume(bytes(_))(_.size.toInt)
+    // this will need some attention to ensure full compatibility
+    .xmap(bytes => new String(bytes.toArray), s => ByteVector(s.getBytes()))
     .as[Constant.Utf8Info]
 
   val stringConstant: Codec[Constant.StringInfo] = ("string index" | constantPoolIndex)
@@ -74,7 +93,7 @@ object ClassFileCodecs {
   val methodHandle: Codec[Constant.MethodHandleInfo] =
     (("reference kind" | mappedEnum(
       u1,
-      MethodReferenceKind.values.map(k => k -> k.ordinal).toMap,
+      MethodReferenceKind.values.map(k => k -> k.ordinal.toShort).toMap,
     )) ::
       ("reference index" | constantPoolIndex))
       .as[Constant.MethodHandleInfo]
