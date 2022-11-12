@@ -118,7 +118,7 @@ enum Constant {
 }
 
 object Constant {
-  extension (utf8: Utf8Info) def asString: String = new String(utf8.bytes.toArray)
+  extension (utf8: Utf8Info) def asString: String = utf8.bytes
 
 }
 

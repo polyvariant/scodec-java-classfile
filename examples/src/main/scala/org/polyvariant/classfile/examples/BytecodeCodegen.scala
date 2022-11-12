@@ -16,6 +16,8 @@
 
 package org.polyvariant.classfile.examples
 
+import language.dynamics
+
 import cats.effect.IOApp
 import cats.effect.IO
 import org.polyvariant.classfile.ClassFile
@@ -38,12 +40,15 @@ import cats.implicits._
 import cats.data.State
 import cats.data.Chain
 import java.nio.file.Paths
+import java.io.DataInput
+import java.io.DataInputStream
+import java.io.FileInputStream
 
 object BytecodeCodegen extends IOApp.Simple {
 
   trait PoolOps[F[_]] {
     def add(c: Constant): F[ConstantIndex]
-    def addUtf8String(s: String): F[ConstantIndex] = add(Constant.Utf8Info(s))
+    def addUtf8String(s: T): F[ConstantIndex] = add(Constant.Utf8Info(s.render))
     def addClassInfo(c: ConstantIndex) = add(Constant.ClassInfo(c))
   }
 
@@ -80,20 +85,36 @@ object BytecodeCodegen extends IOApp.Simple {
     a(s)
   }
 
+  case class T private (sym: String) extends Dynamic {
+    def selectDynamic(name: String): T = copy(s"$sym/$name")
+    def render: String = sym
+    def obj: T = copy(s"L$sym;")
+    def array: T = copy(s"[$sym")
+    def method(returns: T): T = copy(s"($sym)${returns.render}")
+  }
+
+  // Type descriptor DSL
+  object T extends Dynamic {
+    def string(s: String): T = new T(s)
+    def selectDynamic(name: String): T = new T(name)
+  }
+
   def mkSystemOut(pool: PoolOps[PoolOps.PoolOp]) =
     for {
-      system <- pool.addUtf8String("java/lang/System").flatMap(pool.addClassInfo)
-      out <- pool.addUtf8String("out")
-      printStream <- pool.addUtf8String("Ljava/io/PrintStream;")
+      system <- pool
+        .addUtf8String(T.java.lang.System)
+        .flatMap(pool.addClassInfo)
+      out <- pool.addUtf8String(T.out)
+      printStream <- pool.addUtf8String(T.java.io.PrintStream.obj)
       nat <- pool.add(Constant.NameAndTypeInfo(out, printStream))
       fieldRefInfo <- pool.add(Constant.FieldRefInfo(system, nat))
     } yield fieldRefInfo
 
   def mkPrintln(pool: PoolOps[PoolOps.PoolOp]) =
     for {
-      printStream <- pool.addUtf8String("java/io/PrintStream").flatMap(pool.addClassInfo)
-      println <- pool.addUtf8String("println")
-      descriptor <- pool.addUtf8String("(Ljava/lang/String;)V")
+      printStream <- pool.addUtf8String(T.java.io.PrintStream).flatMap(pool.addClassInfo)
+      println <- pool.addUtf8String(T.println)
+      descriptor <- pool.addUtf8String(T.java.lang.String.obj.method(T.V))
       nat <- pool.add(Constant.NameAndTypeInfo(println, descriptor))
       methodRefInfo <- pool.add(Constant.MethodRefInfo(printStream, nat))
     } yield methodRefInfo
@@ -104,7 +125,7 @@ object BytecodeCodegen extends IOApp.Simple {
   ): PoolOps.PoolOp[(Vector[Instruction], Int)] =
     for {
       stringIndex <- pool
-        .addUtf8String(text)
+        .addUtf8String(T.string(text))
         .flatMap(s => pool.add(Constant.StringInfo(s)))
       systemOutIndex <- mkSystemOut(pool)
       printlnIndex <- mkPrintln(pool)
@@ -140,9 +161,9 @@ object BytecodeCodegen extends IOApp.Simple {
       }
 
     for {
-      mainNameIndex <- pool.addUtf8String("main")
-      voidDescriptorIndex <- pool.addUtf8String("([Ljava/lang/String;)V")
-      _ <- pool.addUtf8String("Code")
+      mainNameIndex <- pool.addUtf8String(T.main)
+      voidDescriptorIndex <- pool.addUtf8String(T.java.lang.String.obj.array.method(T.V))
+      _ <- pool.addUtf8String(T.string("Code"))
       code <- mkCode
     } yield (cp: ConstantPool) =>
       MethodInfo(
@@ -158,11 +179,11 @@ object BytecodeCodegen extends IOApp.Simple {
 
   val cf = withPool { pool =>
     for {
-      thisClass <- pool.addUtf8String("Foo").flatMap(pool.addClassInfo)
-      superClass <- pool.addUtf8String("java/lang/Object").flatMap(pool.addClassInfo)
+      thisClass <- pool.addUtf8String(T.string("Foo")).flatMap(pool.addClassInfo)
+      superClass <- pool.addUtf8String(T.java.lang.Object).flatMap(pool.addClassInfo)
       mainMethod <- mkMainMethod(pool)
-      _ <- pool.addUtf8String("SYNTHETIC.java")
-      _ <- pool.addUtf8String("SourceFile")
+      _ <- pool.addUtf8String(T.string("SYNTHETIC.java"))
+      _ <- pool.addUtf8String(T.string("SourceFile"))
     } yield cp =>
       ClassFile(
         minorVersion = 0,
