@@ -11,6 +11,16 @@ import org.polyvariant.classfile.examples.MethodModel
 import scalatags.JsDom.TypedTag
 import org.polyvariant.classfile.examples.AttributeModel
 import scala.util.Failure
+import scalajs.js
+import scala.scalajs.js.annotation.JSGlobal
+import scala.scalajs.js.annotation.JSExport
+import scala.scalajs.js.annotation.JSExportTopLevel
+
+@js.native
+@JSGlobal
+object Prism extends js.Any {
+  def highlightAll(): js.Any = js.native
+}
 
 object DemoMain {
 
@@ -57,15 +67,14 @@ object DemoMain {
 
     val bits = ByteVector(bytes).bits
 
-    val decodedE =
+    val decodedFullE =
       ClassFileCodecs
         .classFile
         .decode(bits)
         .map(_.value)
-        .map(ExampleCode.decode)
         .toTry
 
-    decodedE match
+    decodedFullE match
       case Failure(e) =>
         output.appendChild(
           p(style := "color: red", "Failed to decode file (see console for stack trace)").render
@@ -74,7 +83,22 @@ object DemoMain {
         return
       case _ =>
 
-    val decoded = decodedE.get
+    val decodedFull = decodedFullE.get
+
+    val decoded = ExampleCode.decode(decodedFull)
+
+    def renderCode(v: Any) = pre(
+      code(
+        `class` := "language-scala",
+        pprint
+          .PPrinter
+          .apply(
+            additionalHandlers = { case b: ByteVector => pprint.Tree.Literal(s"\"${b.toHex}\"") }
+          )
+          .apply(v)
+          .plainText,
+      )
+    )
 
     output.appendChild(
       div(
@@ -93,22 +117,14 @@ object DemoMain {
             decoded.methods.map(renderMethod)
           ),
         ),
-        p("toString: "),
-        pre(
-          code(
-            pprint
-              .PPrinter
-              .apply(
-                additionalHandlers = { case b: ByteVector =>
-                  pprint.Tree.Literal(s"\"${b.toHex}\"")
-                }
-              )
-              .apply(decoded)
-              .plainText
-          )
-        ),
+        p("toString simple: "),
+        renderCode(decoded),
+        p("toString full: "),
+        renderCode(decodedFull),
       ).render
     )
+
+    Prism.highlightAll()
   }
 
   def main(args: Array[String]): Unit =

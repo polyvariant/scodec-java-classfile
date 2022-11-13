@@ -1,15 +1,14 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <link href="./prism.css" rel="stylesheet" />
+  </head>
   <body>
     <h1>Classfile analyzer v0.0.0.0.0.1</h1>
     <h2>Pls upload classfile</h2>
     <input type="file" id="file_input" accept=".class" />
     <div id="output"></div>
   </body>
-  <script
-    type="text/javascript"
-    src=".js/target/scala-3.2.1/demo-fastopt.js"
-  ></script>
   <style>
     *,
     *:before,
@@ -21,4 +20,10 @@
       padding: 10px;
     }
   </style>
+  <script src=".js/target/scala-3.2.1/demo-fastopt.js"></script>
+  <script>
+    window.Prism = window.Prism || {};
+    window.Prism.manual = true;
+  </script>
+  <script src="./prism.js"></script>
 </html>
