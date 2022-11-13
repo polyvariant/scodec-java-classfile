@@ -15,6 +15,7 @@ import scalajs.js
 import scala.scalajs.js.annotation.JSGlobal
 import scala.scalajs.js.annotation.JSExport
 import scala.scalajs.js.annotation.JSExportTopLevel
+import org.scalajs.dom.html.TableRow
 
 @js.native
 @JSGlobal
@@ -28,33 +29,38 @@ object DemoMain {
 
   val output = document.getElementById("output")
 
+  def renderAttributes(attributes: List[AttributeModel]) = table(
+    tbody(
+      attributes.map(renderAttribute)
+    )
+  )
+
+  def renderAttribute(attr: AttributeModel): TypedTag[Element] = {
+    val extras =
+      attr match {
+        case c: AttributeModel.Code =>
+          List(
+            td("max stack: " + c.maxStack),
+            td("max locals: " + c.maxLocals),
+            td("instruction count: " + c.code.length),
+            td("exception table count: " + c.exceptionTable.length),
+            td("attributes: ", renderAttributes(c.attributes)),
+          )
+
+        case AttributeModel.Unsupported(name, bytes) =>
+          td("attribute unknown: " + s" (0x${bytes.toHex})") :: Nil
+
+        case _ => td("attribute unknown") :: Nil
+      }
+
+    tr(td(attr.attrName), extras)
+  }
+
   def renderMethod(method: MethodModel): TypedTag[Element] = tr(
     td(method.name),
     td(method.descriptor),
     td(
-      table(
-        tbody(
-          method.attributes.map { attr =>
-            val extras =
-              attr match {
-                case c: AttributeModel.Code =>
-                  List(
-                    td("max stack: " + c.maxStack),
-                    td("max locals: " + c.maxLocals),
-                    td("instruction count: " + c.code.length),
-                    td("exception table count: " + c.exceptionTable.length),
-                    td("attribute count: " + c.attributes.length),
-                  )
-                case _ => td("attribute unknown") :: Nil
-              }
-
-            tr(
-              td(attr.attrName),
-              extras,
-            )
-          }
-        )
-      )
+      renderAttributes(method.attributes)
     ),
   )
 
