@@ -26,7 +26,6 @@ import scodec.bits.ByteVector
 import scodec.bits._
 
 import java.nio.charset.StandardCharsets
-import scala.reflect.TypeTest
 
 object ClassFileCodecs {
 
