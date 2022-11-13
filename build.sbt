@@ -9,10 +9,10 @@ ThisBuild / tlSonatypeUseLegacyHost := false
 def crossPlugin(x: sbt.librarymanagement.ModuleID) = compilerPlugin(x.cross(CrossVersion.full))
 
 val compilerPlugins = List(
-  crossPlugin("org.polyvariant" % "better-tostring" % "0.3.16")
+  crossPlugin("org.polyvariant" % "better-tostring" % "0.3.17")
 )
 
-val Scala3 = "3.1.3"
+val Scala3 = "3.2.1"
 
 ThisBuild / scalaVersion := Scala3
 ThisBuild / crossScalaVersions := Seq(Scala3)
@@ -24,14 +24,13 @@ ThisBuild / tlFatalWarningsInCi := false
 
 val commonSettings = Seq(
   libraryDependencies ++= compilerPlugins ++ Seq(
-    "com.disneystreaming" %%% "weaver-cats" % "0.7.15" % Test,
-    "com.disneystreaming" %%% "weaver-discipline" % "0.7.15" % Test,
-    "com.disneystreaming" %%% "weaver-scalacheck" % "0.7.15" % Test,
+    "com.disneystreaming" %%% "weaver-cats" % "0.8.0" % Test,
+    "com.disneystreaming" %%% "weaver-scalacheck" % "0.8.0" % Test,
   ),
   testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
 )
 
-lazy val core = crossProject(JVMPlatform, JSPlatform)
+lazy val core = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .settings(
     commonSettings,
@@ -40,7 +39,7 @@ lazy val core = crossProject(JVMPlatform, JSPlatform)
     ),
   )
 
-lazy val codecs = crossProject(JVMPlatform, JSPlatform)
+lazy val codecs = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .settings(
     commonSettings,
@@ -50,12 +49,12 @@ lazy val codecs = crossProject(JVMPlatform, JSPlatform)
   )
   .dependsOn(core)
 
-lazy val examples = crossProject(JVMPlatform)
+lazy val examples = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .crossType(CrossType.Pure)
   .settings(
     libraryDependencies ++= Seq(
-      "co.fs2" %%% "fs2-io" % "3.2.12",
       "com.lihaoyi" %%% "pprint" % "0.7.3",
+      "org.typelevel" %%% "cats-core" % "2.9.0",
     ),
     commonSettings,
   )

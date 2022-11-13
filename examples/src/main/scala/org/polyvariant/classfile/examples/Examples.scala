@@ -16,12 +16,7 @@
 
 package org.polyvariant.classfile.examples
 
-import cats.effect.ExitCode
-import cats.effect.IO
-import cats.effect.IOApp
 import cats.implicits._
-import fs2.io.file.Files
-import fs2.io.file.Path
 import org.polyvariant.classfile.ConstantPool
 import org.polyvariant.classfile._
 import org.polyvariant.classfile.codecs.ClassFileCodecs
@@ -35,6 +30,8 @@ import scodec.bits._
 
 import java.nio.charset.StandardCharsets
 import scala.reflect.TypeTest
+import java.nio.file.Files
+import java.nio.file.Paths
 
 case class ClassModel(
   thisClass: String,
@@ -79,97 +76,34 @@ enum AttributeModel {
 case class LineNumberTableEntry(startPc: Int, lineNumber: Int)
 case class ExceptionTableEntry(startPc: Int, endPc: Int, handlerPc: Int, catchType: Int)
 
-object Examples extends IOApp {
+object Examples extends App {
 
-  extension (cp: ConstantPool)
+  pprint.apply(42)
 
-    def resolve[A <: Constant](
-      index: ConstantIndex[A]
-    )(
-      using tt: TypeTest[Constant, A]
-    ): A =
-      cp(index) match {
-        case t: A => t
-      }
+  val bytes = Files
+    .readAllBytes(Paths.get(args(0)))
+  val bits = ByteVector(bytes).bits
 
-  object AttributeCodecs {
-    import scodec.codecs._
-    import ClassFileCodecs._
-    import InstructionCodecs._
+  val decoded = ClassFileCodecs
+    .classFile
+    .decode(bits)
+    .map(_.value)
+    .map(ExampleCode.decode)
+  // .map(_.methods.map(f => f.name -> f.attributes))
 
-    def code(cp: ConstantPool): Codec[AttributeModel.Code] =
-      (
-        ("max stack" | u2) ::
-          ("max locals" | u2) ::
-          variableSizeBytesLong(
-            "code length" | u4,
-            "code" | vector(instruction),
-          ) ::
-          vectorOfN(
-            "exception table length" | u2,
-            (
-              ("start pc" | u2) ::
-                ("end pc" | u2) ::
-                ("handler pc" | u2) ::
-                ("catch type" | u2)
-            ).as[ExceptionTableEntry],
-          ) ::
-          attributes.xmap(decodeAttrs(_, cp), encodeAttrs(_, cp)),
-      ).dropUnits.as[AttributeModel.Code]
+  pprint.pprintln(
+    decoded
+      .toTry
+      .get
+  )
 
-    val lineNumberTable: Codec[AttributeModel.LineNumberTable] = vectorOfN(
-      "line number table length" | u2,
-      (("start pc" | u2) ::
-        ("line number" | u2)).as[LineNumberTableEntry],
-    ).as[AttributeModel.LineNumberTable]
+}
 
-    def sourceFile(
-      cp: ConstantPool
-    ): Codec[AttributeModel.SourceFile] = ("name index" | constantPoolIndex[Constant.Utf8Info])
-      .xmap(
-        cp.resolve[Constant.Utf8Info](_).asString,
-        s =>
-          cp.indexOf[Constant.Utf8Info](Constant.Utf8Info(s))
-            .getOrElse(sys.error(s"constant not found: $s (utf8)")),
-      )
-      .as[AttributeModel.SourceFile]
-
-    def attribute(name: String, cp: ConstantPool): Codec[AttributeModel] = {
-      val default = bytes
-        .xmap[AttributeModel.Unsupported](AttributeModel.Unsupported(name, _), _.bytes)
-        .upcast[AttributeModel]
-
-      Map(
-        "Code" -> code(cp).upcast[AttributeModel],
-        "LineNumberTable" -> lineNumberTable.upcast[AttributeModel],
-        "SourceFile" -> sourceFile(cp).upcast[AttributeModel],
-      )
-        .get(name)
-        .getOrElse(default)
-    }
-
-    def encodeAttrs(
-      attributes: List[AttributeModel],
-      cp: ConstantPool,
-    ): List[AttributeInfo] = attributes.map { a =>
-      AttributeInfo(
-        cp.indexOf(a.attrNameConstant).getOrElse(sys.error(s"constant not found: ${a.attrName}")),
-        AttributeCodecs.attribute(a.attrName, cp).encode(a).require.bytes,
-      )
-    }
-
-    def decodeAttrs(
-      attributes: List[AttributeInfo],
-      cp: ConstantPool,
-    ): List[AttributeModel] = attributes.map { a =>
-      val name = cp.resolve[Constant.Utf8Info](a.nameIndex).asString
-
-      attribute(name, cp).decodeValue(a.info.bits).require
-    }
-
-  }
+object ExampleCode {
 
   def decode(cf: ClassFile): ClassModel = {
+    import AttributeCodecs._
+
     extension [C <: Constant: TypeTest[Constant, *]](ci: ConstantIndex[C])
       def resolveIndex: C = cf.constants.resolve[C](ci)
 
@@ -196,30 +130,92 @@ object Examples extends IOApp {
     )
   }
 
-  pprint.apply(42)
+}
 
-  def run(args: List[String]): IO[ExitCode] = Files[IO]
-    .readAll(Path(args(0)))
-    .compile
-    .toVector
-    .map { bytes =>
-      val bits = ByteVector(bytes).bits
+object AttributeCodecs {
+  import scodec.codecs._
+  import ClassFileCodecs._
+  import InstructionCodecs._
 
-      ClassFileCodecs
-        .classFile
-        .decode(bits)
-        .map(_.value)
-        .map(decode)
-      // .map(_.methods.map(f => f.name -> f.attributes))
-    }
-    .map(
-      _.map(
-        pprint
-          // .copy(additionalHandlers = { case c: CodeBytes => Literal(c.bytes.toHexDump) })
-          .apply(_)
-      )
+  extension (cp: ConstantPool)
+
+    def resolve[A <: Constant](
+      index: ConstantIndex[A]
+    )(
+      using tt: TypeTest[Constant, A]
+    ): A =
+      cp(index) match {
+        case t: A => t
+      }
+
+  def code(cp: ConstantPool): Codec[AttributeModel.Code] =
+    (
+      ("max stack" | u2) ::
+        ("max locals" | u2) ::
+        variableSizeBytesLong(
+          "code length" | u4,
+          "code" | vector(instruction),
+        ) ::
+        vectorOfN(
+          "exception table length" | u2,
+          (
+            ("start pc" | u2) ::
+              ("end pc" | u2) ::
+              ("handler pc" | u2) ::
+              ("catch type" | u2)
+          ).as[ExceptionTableEntry],
+        ) ::
+        attributes.xmap(decodeAttrs(_, cp), encodeAttrs(_, cp)),
+    ).dropUnits.as[AttributeModel.Code]
+
+  val lineNumberTable: Codec[AttributeModel.LineNumberTable] = vectorOfN(
+    "line number table length" | u2,
+    (("start pc" | u2) ::
+      ("line number" | u2)).as[LineNumberTableEntry],
+  ).as[AttributeModel.LineNumberTable]
+
+  def sourceFile(
+    cp: ConstantPool
+  ): Codec[AttributeModel.SourceFile] = ("name index" | constantPoolIndex[Constant.Utf8Info])
+    .xmap(
+      cp.resolve[Constant.Utf8Info](_).asString,
+      s =>
+        cp.indexOf[Constant.Utf8Info](Constant.Utf8Info(s))
+          .getOrElse(sys.error(s"constant not found: $s (utf8)")),
     )
-    .flatMap(IO.println(_))
-    .as(ExitCode.Success)
+    .as[AttributeModel.SourceFile]
+
+  def attribute(name: String, cp: ConstantPool): Codec[AttributeModel] = {
+    val default = bytes
+      .xmap[AttributeModel.Unsupported](AttributeModel.Unsupported(name, _), _.bytes)
+      .upcast[AttributeModel]
+
+    Map(
+      "Code" -> code(cp).upcast[AttributeModel],
+      "LineNumberTable" -> lineNumberTable.upcast[AttributeModel],
+      "SourceFile" -> sourceFile(cp).upcast[AttributeModel],
+    )
+      .get(name)
+      .getOrElse(default)
+  }
+
+  def encodeAttrs(
+    attributes: List[AttributeModel],
+    cp: ConstantPool,
+  ): List[AttributeInfo] = attributes.map { a =>
+    AttributeInfo(
+      cp.indexOf(a.attrNameConstant).getOrElse(sys.error(s"constant not found: ${a.attrName}")),
+      AttributeCodecs.attribute(a.attrName, cp).encode(a).require.bytes,
+    )
+  }
+
+  def decodeAttrs(
+    attributes: List[AttributeInfo],
+    cp: ConstantPool,
+  ): List[AttributeModel] = attributes.map { a =>
+    val name = cp.resolve[Constant.Utf8Info](a.nameIndex).asString
+
+    attribute(name, cp).decodeValue(a.info.bits).require
+  }
 
 }

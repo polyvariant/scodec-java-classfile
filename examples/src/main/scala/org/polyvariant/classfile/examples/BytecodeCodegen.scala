@@ -18,8 +18,6 @@ package org.polyvariant.classfile.examples
 
 import language.dynamics
 
-import cats.effect.IOApp
-import cats.effect.IO
 import org.polyvariant.classfile.ClassFile
 import org.polyvariant.classfile.ConstantPool
 import org.polyvariant.classfile.ClassAccessFlag
@@ -29,12 +27,8 @@ import org.polyvariant.classfile.MethodInfo
 import org.polyvariant.classfile.MethodAccessFlag
 import org.polyvariant.classfile.AttributeInfo
 import scodec.bits._
-import fs2.io.file.Files
-import fs2.io.file.Path
 import org.polyvariant.classfile.codecs.ClassFileCodecs
 import org.polyvariant.classfile.Instruction
-import org.polyvariant.classfile.examples.Examples.AttributeCodecs
-import cats.effect.kernel.Ref
 import cats.Functor
 import cats.implicits._
 import cats.data.State
@@ -47,8 +41,9 @@ import scala.reflect.ClassTag
 import scala.quoted.Expr
 import scala.quoted.Quotes
 import org.polyvariant.classfile.Constant.Utf8Info
+import java.nio.file.Files
 
-object BytecodeCodegen extends IOApp.Simple {
+object BytecodeCodegen extends App {
 
   trait PoolOps[F[_]] {
     def add[C <: Constant](c: C): F[ConstantIndex[C]]
@@ -236,12 +231,6 @@ object BytecodeCodegen extends IOApp.Simple {
 
   // pprint.pprintln(cf)
 
-  def run: IO[Unit] =
-    fs2
-      .Stream
-      .chunk(fs2.Chunk.byteVector(bytes))
-      .through(Files[IO].writeAll(Path("Foo.class")))
-      .compile
-      .drain
+  Files.write(Paths.get("Foo.class"), bytes.toArray)
 
 }
