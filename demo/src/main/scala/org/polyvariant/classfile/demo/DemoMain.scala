@@ -94,7 +94,19 @@ object DemoMain {
           ),
         ),
         p("toString: "),
-        pre(code(pprint(decoded).plainText)),
+        pre(
+          code(
+            pprint
+              .PPrinter
+              .apply(
+                additionalHandlers = { case b: ByteVector =>
+                  pprint.Tree.Literal(s"\"${b.toHex}\"")
+                }
+              )
+              .apply(decoded)
+              .plainText
+          )
+        ),
       ).render
     )
   }
