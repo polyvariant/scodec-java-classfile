@@ -43,13 +43,25 @@ import java.nio.file.Paths
 import java.io.DataInput
 import java.io.DataInputStream
 import java.io.FileInputStream
+import scala.reflect.ClassTag
+import scala.quoted.Expr
+import scala.quoted.Quotes
+import org.polyvariant.classfile.Constant.Utf8Info
 
 object BytecodeCodegen extends IOApp.Simple {
 
   trait PoolOps[F[_]] {
-    def add(c: Constant): F[ConstantIndex]
-    def addUtf8String(s: T): F[ConstantIndex] = add(Constant.Utf8Info(s.render))
-    def addClassInfo(c: ConstantIndex) = add(Constant.ClassInfo(c))
+    def add[C <: Constant](c: C): F[ConstantIndex[C]]
+
+    def addUtf8String(s: String): F[ConstantIndex[Constant.Utf8Info]] = add(
+      Constant.Utf8Info(s)
+    )
+
+    def addTypeDescriptor(t: TypeDescriptor): F[ConstantIndex[Utf8Info]] = addUtf8String(t.render)
+
+    def addClassInfo(c: ConstantIndex[Constant.Utf8Info]): F[ConstantIndex[Constant.ClassInfo]] =
+      add(Constant.ClassInfo(c))
+
   }
 
   object PoolOps {
@@ -59,10 +71,12 @@ object BytecodeCodegen extends IOApp.Simple {
     val stateInstance: PoolOps[PoolOp] =
       new PoolOps[PoolOp] {
 
-        def add(c: Constant): PoolOp[ConstantIndex] = State.get[ConstantPool].flatMap { old =>
+        def add[C <: Constant](
+          c: C
+        ): PoolOp[ConstantIndex[C]] = State.get[ConstantPool].flatMap { old =>
           old.indexOf(c) match {
             case None =>
-              val nextIndex = ConstantIndex(old.declaredSize + c.size)
+              val nextIndex = ConstantIndex[C](old.declaredSize + c.size)
               State.set(old.append(c)).as(nextIndex)
 
             case Some(i) => State.pure(i)
@@ -85,36 +99,42 @@ object BytecodeCodegen extends IOApp.Simple {
     a(s)
   }
 
-  case class T private (sym: String) extends Dynamic {
-    def selectDynamic(name: String): T = copy(s"$sym/$name")
+  case class TypeDescriptor(sym: String) extends Dynamic {
+    def selectDynamic(name: String): TypeDescriptor = copy(s"$sym/$name")
     def render: String = sym
-    def obj: T = copy(s"L$sym;")
-    def array: T = copy(s"[$sym")
-    def method(returns: T): T = copy(s"($sym)${returns.render}")
+    def obj: TypeDescriptor = copy(s"L$sym;")
+    def array: TypeDescriptor = copy(s"[$sym")
+    def method(returns: TypeDescriptor): TypeDescriptor = copy(s"($sym)${returns.render}")
   }
 
   // Type descriptor DSL
   object T extends Dynamic {
-    def string(s: String): T = new T(s)
-    def selectDynamic(name: String): T = new T(name)
+    def string(s: String): TypeDescriptor = new TypeDescriptor(s)
+    def selectDynamic(name: String): TypeDescriptor = new TypeDescriptor(name)
+
   }
+
+  val UnitDescriptor: TypeDescriptor = T.V
+  val StringDescriptor: TypeDescriptor = T.java.lang.String.obj
 
   def mkSystemOut(pool: PoolOps[PoolOps.PoolOp]) =
     for {
       system <- pool
-        .addUtf8String(T.java.lang.System)
+        .addTypeDescriptor(T.java.lang.System)
         .flatMap(pool.addClassInfo)
-      out <- pool.addUtf8String(T.out)
-      printStream <- pool.addUtf8String(T.java.io.PrintStream.obj)
+      out <- pool.addTypeDescriptor(T.out)
+      printStream <- pool.addTypeDescriptor(T.java.io.PrintStream.obj)
       nat <- pool.add(Constant.NameAndTypeInfo(out, printStream))
       fieldRefInfo <- pool.add(Constant.FieldRefInfo(system, nat))
     } yield fieldRefInfo
 
   def mkPrintln(pool: PoolOps[PoolOps.PoolOp]) =
     for {
-      printStream <- pool.addUtf8String(T.java.io.PrintStream).flatMap(pool.addClassInfo)
-      println <- pool.addUtf8String(T.println)
-      descriptor <- pool.addUtf8String(T.java.lang.String.obj.method(T.V))
+      printStream <- pool
+        .addTypeDescriptor(T.java.io.PrintStream)
+        .flatMap(pool.addClassInfo)
+      println <- pool.addTypeDescriptor(T.println)
+      descriptor <- pool.addTypeDescriptor(StringDescriptor.method(UnitDescriptor))
       nat <- pool.add(Constant.NameAndTypeInfo(println, descriptor))
       methodRefInfo <- pool.add(Constant.MethodRefInfo(printStream, nat))
     } yield methodRefInfo
@@ -125,7 +145,7 @@ object BytecodeCodegen extends IOApp.Simple {
   ): PoolOps.PoolOp[(Vector[Instruction], Int)] =
     for {
       stringIndex <- pool
-        .addUtf8String(T.string(text))
+        .addTypeDescriptor(T.string(text))
         .flatMap(s => pool.add(Constant.StringInfo(s)))
       systemOutIndex <- mkSystemOut(pool)
       printlnIndex <- mkPrintln(pool)
@@ -161,9 +181,11 @@ object BytecodeCodegen extends IOApp.Simple {
       }
 
     for {
-      mainNameIndex <- pool.addUtf8String(T.main)
-      voidDescriptorIndex <- pool.addUtf8String(T.java.lang.String.obj.array.method(T.V))
-      _ <- pool.addUtf8String(T.string("Code"))
+      mainNameIndex <- pool.addUtf8String("main")
+      voidDescriptorIndex <- pool.addTypeDescriptor(
+        StringDescriptor.array.method(UnitDescriptor)
+      )
+      _ <- pool.addUtf8String("Code")
       code <- mkCode
     } yield (cp: ConstantPool) =>
       MethodInfo(
@@ -179,11 +201,11 @@ object BytecodeCodegen extends IOApp.Simple {
 
   val cf = withPool { pool =>
     for {
-      thisClass <- pool.addUtf8String(T.string("Foo")).flatMap(pool.addClassInfo)
-      superClass <- pool.addUtf8String(T.java.lang.Object).flatMap(pool.addClassInfo)
+      thisClass <- pool.addTypeDescriptor(T.Foo).flatMap(pool.addClassInfo)
+      superClass <- pool.addTypeDescriptor(T.java.lang.Object).flatMap(pool.addClassInfo)
       mainMethod <- mkMainMethod(pool)
-      _ <- pool.addUtf8String(T.string("SYNTHETIC.java"))
-      _ <- pool.addUtf8String(T.string("SourceFile"))
+      _ <- pool.addUtf8String("SYNTHETIC.java")
+      _ <- pool.addUtf8String("SourceFile")
     } yield cp =>
       ClassFile(
         minorVersion = 0,

@@ -26,6 +26,7 @@ import scodec.bits.ByteVector
 import scodec.bits._
 
 import java.nio.charset.StandardCharsets
+import scala.reflect.TypeTest
 
 object ClassFileCodecs {
 
@@ -35,12 +36,13 @@ object ClassFileCodecs {
   val u2: Codec[Int] = uint(16)
   val u4: Codec[Long] = ulong(32)
 
-  val constantPoolIndex: Codec[ConstantIndex] = u2.as[ConstantIndex]
+  def constantPoolIndex[T <: Constant]: Codec[ConstantIndex[T]] = u2.as[ConstantIndex[T]]
+
   val constantPoolIndexNarrow: Codec[ConstantIndexNarrow] = u1.as[ConstantIndexNarrow]
 
   private val fieldRefCommon =
-    ("class index" | constantPoolIndex) ::
-      ("name and type index" | constantPoolIndex)
+    ("class index" | constantPoolIndex[Constant.ClassInfo]) ::
+      ("name and type index" | constantPoolIndex[Constant])
 
   val methodRef: Codec[Constant.MethodRefInfo] = fieldRefCommon.as[Constant.MethodRefInfo]
   val fieldRef: Codec[Constant.FieldRefInfo] = fieldRefCommon.as[Constant.FieldRefInfo]
@@ -48,11 +50,13 @@ object ClassFileCodecs {
     .as[Constant.InterfaceMethodRefInfo]
 
   val nameAndType: Codec[Constant.NameAndTypeInfo] =
-    (("name index" | constantPoolIndex) :: ("descriptor index" | constantPoolIndex))
+    (("name index" | constantPoolIndex[Constant.Utf8Info]) ::
+      ("descriptor index" | constantPoolIndex[Constant.Utf8Info]))
       .as[Constant.NameAndTypeInfo]
 
-  val classConstant: Codec[Constant.ClassInfo] = ("name index" | constantPoolIndex)
-    .as[Constant.ClassInfo]
+  val classConstant: Codec[Constant.ClassInfo] =
+    ("name index" | constantPoolIndex[Constant.Utf8Info])
+      .as[Constant.ClassInfo]
 
   // def encodeString(s: String) = {
   // val charArray = s
@@ -76,8 +80,9 @@ object ClassFileCodecs {
     .xmap(bytes => new String(bytes.toArray), s => ByteVector(s.getBytes()))
     .as[Constant.Utf8Info]
 
-  val stringConstant: Codec[Constant.StringInfo] = ("string index" | constantPoolIndex)
-    .as[Constant.StringInfo]
+  val stringConstant: Codec[Constant.StringInfo] =
+    ("string index" | constantPoolIndex[Constant.Utf8Info])
+      .as[Constant.StringInfo]
 
   private val numeric = "bytes" | bytes(4)
   private val bigNumeric = ("high bytes" | bytes(4)) :: ("low bytes" | bytes(4))
@@ -87,30 +92,31 @@ object ClassFileCodecs {
   val longConstant: Codec[Constant.LongInfo] = bigNumeric.as[Constant.LongInfo]
   val doubleConstant: Codec[Constant.DoubleInfo] = bigNumeric.as[Constant.DoubleInfo]
 
-  val methodType: Codec[Constant.MethodTypeInfo] = ("descriptor index" | constantPoolIndex)
-    .as[Constant.MethodTypeInfo]
+  val methodType: Codec[Constant.MethodTypeInfo] =
+    ("descriptor index" | constantPoolIndex[Constant.NameAndTypeInfo])
+      .as[Constant.MethodTypeInfo]
 
   val methodHandle: Codec[Constant.MethodHandleInfo] =
     (("reference kind" | mappedEnum(
       u1,
       MethodReferenceKind.values.map(k => k -> k.ordinal.toShort).toMap,
     )) ::
-      ("reference index" | constantPoolIndex))
+      ("reference index" | constantPoolIndex[Constant]))
       .as[Constant.MethodHandleInfo]
 
   private val dynamicCommon =
     ("bootstrap method attr index" | u2) ::
-      ("name and type index" | constantPoolIndex)
+      ("name and type index" | constantPoolIndex[Constant.NameAndTypeInfo])
 
   val dynamic: Codec[Constant.DynamicInfo] = dynamicCommon.as[Constant.DynamicInfo]
 
   val invokeDynamic: Codec[Constant.InvokeDynamicInfo] = dynamicCommon
     .as[Constant.InvokeDynamicInfo]
 
-  val module: Codec[Constant.ModuleInfo] = ("name index" | constantPoolIndex)
+  val module: Codec[Constant.ModuleInfo] = ("name index" | constantPoolIndex[Constant.Utf8Info])
     .as[Constant.ModuleInfo]
 
-  val pkg: Codec[Constant.PackageInfo] = ("name index" | constantPoolIndex)
+  val pkg: Codec[Constant.PackageInfo] = ("name index" | constantPoolIndex[Constant.Utf8Info])
     .as[Constant.PackageInfo]
 
   val constantEntry: Codec[Constant] =
@@ -193,7 +199,7 @@ object ClassFileCodecs {
 
   val attribute: Codec[AttributeInfo] =
     "attribute" | (
-      ("name index" | constantPoolIndex) ::
+      ("name index" | constantPoolIndex[Constant.Utf8Info]) ::
         variableSizeBytesLong(
           "attribute length" | u4,
           "info" | bytes,
@@ -207,16 +213,16 @@ object ClassFileCodecs {
     "field info" |
       (
         "access flags" | fieldAccessFlags ::
-          ("name index" | constantPoolIndex) ::
-          ("descriptor index" | constantPoolIndex) ::
+          ("name index" | constantPoolIndex[Constant.Utf8Info]) ::
+          ("descriptor index" | constantPoolIndex[Constant.Utf8Info]) ::
           attributes
       ).as[FieldInfo]
 
   val methodInfo =
     "method info" | (
       ("access flags" | methodAccessFlags) ::
-        ("name index" | constantPoolIndex) ::
-        ("descriptor index" | constantPoolIndex) ::
+        ("name index" | constantPoolIndex[Constant.Utf8Info]) ::
+        ("descriptor index" | constantPoolIndex[Constant.Utf8Info]) ::
         attributes
     ).as[MethodInfo]
 
@@ -235,11 +241,11 @@ object ClassFileCodecs {
         ("major version" | u2) ::
         constantPool ::
         classAccessFlags ::
-        ("this class" | constantPoolIndex) ::
-        ("super class" | constantPoolIndex) ::
+        ("this class" | constantPoolIndex[Constant.ClassInfo]) ::
+        ("super class" | constantPoolIndex[Constant.ClassInfo]) ::
         listOfN(
           "interface count" | u2,
-          "interface index" | constantPoolIndex,
+          "interface index" | constantPoolIndex[Constant.ClassInfo],
         ) ::
         listOfN(
           "field count" | u2,

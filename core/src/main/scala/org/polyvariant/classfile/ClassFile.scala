@@ -26,9 +26,9 @@ case class ClassFile(
   majorVersion: Int,
   constants: ConstantPool,
   accessFlags: Set[ClassAccessFlag],
-  thisClass: ConstantIndex,
-  superClass: ConstantIndex,
-  interfaces: List[ConstantIndex],
+  thisClass: ConstantIndex[Constant.ClassInfo],
+  superClass: ConstantIndex[Constant.ClassInfo],
+  interfaces: List[ConstantIndex[Constant.ClassInfo]],
   fields: List[FieldInfo],
   methods: List[MethodInfo],
   attributes: List[AttributeInfo],
@@ -37,7 +37,7 @@ case class ClassFile(
 final case class ConstantPool private (private val constants: Array[Constant | Null])
   extends AnyVal {
   // ConstantIndex is 1-based, so we subtract 1
-  def apply(index: ConstantIndex): Constant = constants(index.value - 1)
+  def apply[A <: Constant](index: ConstantIndex[A]): Constant = constants(index.value - 1)
 
   // Size declared in length byte
   def declaredSize: Int = constants.length
@@ -47,7 +47,7 @@ final case class ConstantPool private (private val constants: Array[Constant | N
 
   def constantList: List[Constant] = constants.toList.collect { case c: Constant => c }
 
-  def indexOf(constant: Constant): Option[ConstantIndex] =
+  def indexOf[C <: Constant](constant: C): Option[ConstantIndex[C]] =
     constants.indexOf(constant) match {
       case -1 => None
       case i  => Some(ConstantIndex(i + 1))
@@ -74,7 +74,7 @@ object ConstantPool {
 
 }
 
-case class ConstantIndex(value: Int) {
+case class ConstantIndex[C <: Constant](value: Int) {
 
   def toNarrowEither: Either[this.type, ConstantIndexNarrow] =
     if (value.isValidShort)
@@ -87,7 +87,7 @@ case class ConstantIndex(value: Int) {
 case class ConstantIndexNarrow(value: Short)
 
 object ConstantIndex {
-  val init: ConstantIndex = ConstantIndex(1)
+  val init: ConstantIndex[Nothing] = ConstantIndex(1)
 }
 
 enum Constant {
@@ -98,23 +98,50 @@ enum Constant {
       case _                           => 1
     }
 
-  case ClassInfo(nameIndex: ConstantIndex)
-  case FieldRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case MethodRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case InterfaceMethodRefInfo(classIndex: ConstantIndex, nameAndTypeIndex: ConstantIndex)
-  case StringInfo(stringIndex: ConstantIndex)
+  case ClassInfo(nameIndex: ConstantIndex[Constant.Utf8Info])
+
+  case FieldRefInfo(
+    classIndex: ConstantIndex[Constant.ClassInfo],
+    nameAndTypeIndex: ConstantIndex[Constant],
+  )
+
+  case MethodRefInfo(
+    classIndex: ConstantIndex[Constant.ClassInfo],
+    nameAndTypeIndex: ConstantIndex[Constant],
+  )
+
+  case InterfaceMethodRefInfo(
+    classIndex: ConstantIndex[Constant.ClassInfo],
+    nameAndTypeIndex: ConstantIndex[Constant],
+  )
+
+  case StringInfo(stringIndex: ConstantIndex[Constant.Utf8Info])
   case IntegerInfo(bytes: ByteVector)
   case FloatInfo(bytes: ByteVector)
   case LongInfo(highBytes: ByteVector, lowBytes: ByteVector)
   case DoubleInfo(highBytes: ByteVector, lowBytes: ByteVector)
-  case NameAndTypeInfo(nameIndex: ConstantIndex, descriptorIndex: ConstantIndex)
+
+  case NameAndTypeInfo(
+    nameIndex: ConstantIndex[Constant.Utf8Info],
+    descriptorIndex: ConstantIndex[Constant.Utf8Info],
+  )
+
   case Utf8Info(bytes: String)
-  case MethodHandleInfo(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex)
-  case MethodTypeInfo(descriptorIndex: ConstantIndex)
-  case DynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
-  case InvokeDynamicInfo(bootstrapMethodAttrIndex: Int, nameAndTypeIndex: ConstantIndex)
-  case ModuleInfo(nameIndex: ConstantIndex)
-  case PackageInfo(nameIndex: ConstantIndex)
+  case MethodHandleInfo(referenceType: MethodReferenceKind, referenceIndex: ConstantIndex[Constant])
+  case MethodTypeInfo(descriptorIndex: ConstantIndex[Constant.NameAndTypeInfo])
+
+  case DynamicInfo(
+    bootstrapMethodAttrIndex: Int,
+    nameAndTypeIndex: ConstantIndex[Constant.NameAndTypeInfo],
+  )
+
+  case InvokeDynamicInfo(
+    bootstrapMethodAttrIndex: Int,
+    nameAndTypeIndex: ConstantIndex[Constant.NameAndTypeInfo],
+  )
+
+  case ModuleInfo(nameIndex: ConstantIndex[Constant.Utf8Info])
+  case PackageInfo(nameIndex: ConstantIndex[Constant.Utf8Info])
 }
 
 object Constant {
@@ -142,19 +169,19 @@ enum MethodReferenceKind {
 
 case class FieldInfo(
   accessFlags: Set[FieldAccessFlag],
-  nameIndex: ConstantIndex,
-  descriptorIndex: ConstantIndex,
+  nameIndex: ConstantIndex[Constant.Utf8Info],
+  descriptorIndex: ConstantIndex[Constant.Utf8Info],
   attributes: List[AttributeInfo],
-)
-
-case class AttributeInfo(
-  nameIndex: ConstantIndex,
-  info: ByteVector,
 )
 
 case class MethodInfo(
   accessFlags: Set[MethodAccessFlag],
-  nameIndex: ConstantIndex,
-  descriptorIndex: ConstantIndex,
+  nameIndex: ConstantIndex[Constant.Utf8Info],
+  descriptorIndex: ConstantIndex[Constant.Utf8Info],
   attributes: List[AttributeInfo],
+)
+
+case class AttributeInfo(
+  nameIndex: ConstantIndex[Constant.Utf8Info],
+  info: ByteVector,
 )

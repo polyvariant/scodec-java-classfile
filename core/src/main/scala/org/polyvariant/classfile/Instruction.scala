@@ -16,13 +16,15 @@
 
 package org.polyvariant.classfile
 
+type AnyConstantIndex = ConstantIndex[Constant]
+
 enum Instruction {
   case aaload
   case aastore
   case aconst_null
   case aload(index: LocalVariableIndex)
   case aload_0, aload_1, aload_2, aload_3
-  case anewarray(index: ConstantIndex)
+  case anewarray(index: AnyConstantIndex)
   case areturn
   case arraylength
   case astore(index: LocalVariableIndex)
@@ -33,7 +35,7 @@ enum Instruction {
   case bipush(byte: Byte)
   case caload
   case castore
-  case checkcast(index: ConstantIndex)
+  case checkcast(index: AnyConstantIndex)
   case d2f
   case d2i
   case d2l
@@ -72,8 +74,8 @@ enum Instruction {
   case fstore(index: LocalVariableIndex)
   case fstore_0, fstore_1, fstore_2, fstore_3
   case fsub
-  case getfield(index: ConstantIndex)
-  case getstatic(index: ConstantIndex)
+  case getfield(index: AnyConstantIndex)
+  case getstatic(index: AnyConstantIndex)
   case goto(offset: Offset)
   case goto_w(offset: OffsetWide)
   case i2b
@@ -109,12 +111,12 @@ enum Instruction {
   case iload_0, iload_1, iload_2, iload_3
   case imul
   case ineg
-  case instanceof(index: ConstantIndex)
-  case invokedynamic(index: ConstantIndex)
-  case invokeinterface(index: ConstantIndex, count: Short)
-  case invokespecial(index: ConstantIndex)
-  case invokestatic(index: ConstantIndex)
-  case invokevirtual(index: ConstantIndex)
+  case instanceof(index: AnyConstantIndex)
+  case invokedynamic(index: AnyConstantIndex)
+  case invokeinterface(index: AnyConstantIndex, count: Short)
+  case invokespecial(index: AnyConstantIndex)
+  case invokestatic(index: AnyConstantIndex)
+  case invokevirtual(index: AnyConstantIndex)
   case ior
   case irem
   case ireturn
@@ -137,8 +139,8 @@ enum Instruction {
   case lcmp
   case lconst_0, lconst_1
   case ldc(index: ConstantIndexNarrow)
-  case ldc_w(index: ConstantIndex)
-  case ldc2_w(index: ConstantIndex)
+  case ldc_w(index: AnyConstantIndex)
+  case ldc2_w(index: AnyConstantIndex)
   case ldiv
   case lload(index: LocalVariableIndex)
   case lload_0, lload_1, lload_2, lload_3
@@ -157,14 +159,14 @@ enum Instruction {
   case lxor
   case monitorenter
   case monitorexit
-  case multianewarray(index: ConstantIndex, dimensions: Short)
-  case _new(index: ConstantIndex)
+  case multianewarray(index: AnyConstantIndex, dimensions: Short)
+  case _new(index: AnyConstantIndex)
   case newarray(atype: ArrayType)
   case nop
   case pop
   case pop2
-  case putfield(index: ConstantIndex)
-  case putstatic(index: ConstantIndex)
+  case putfield(index: AnyConstantIndex)
+  case putstatic(index: AnyConstantIndex)
   case ret(index: LocalVariableIndex)
   case _return
   case saload

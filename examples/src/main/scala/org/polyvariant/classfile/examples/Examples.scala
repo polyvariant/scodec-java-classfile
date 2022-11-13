@@ -84,13 +84,12 @@ object Examples extends IOApp {
   extension (cp: ConstantPool)
 
     def resolve[A <: Constant](
-      index: ConstantIndex
+      index: ConstantIndex[A]
     )(
       using tt: TypeTest[Constant, A]
     ): A =
       cp(index) match {
-        case t: A                  => t
-        case Constant.ClassInfo(i) => cp.resolve(i)
+        case t: A => t
       }
 
   object AttributeCodecs {
@@ -126,10 +125,12 @@ object Examples extends IOApp {
 
     def sourceFile(
       cp: ConstantPool
-    ): Codec[AttributeModel.SourceFile] = ("name index" | constantPoolIndex)
+    ): Codec[AttributeModel.SourceFile] = ("name index" | constantPoolIndex[Constant.Utf8Info])
       .xmap(
         cp.resolve[Constant.Utf8Info](_).asString,
-        s => cp.indexOf(Constant.Utf8Info(s)).getOrElse(sys.error(s"constant not found: $s (utf8)")),
+        s =>
+          cp.indexOf[Constant.Utf8Info](Constant.Utf8Info(s))
+            .getOrElse(sys.error(s"constant not found: $s (utf8)")),
       )
       .as[AttributeModel.SourceFile]
 
@@ -169,25 +170,25 @@ object Examples extends IOApp {
   }
 
   def decode(cf: ClassFile): ClassModel = {
-    def resolve(ci: ConstantIndex) = cf.constants(ci)
-    def r(ci: ConstantIndex): String = cf.constants.resolve[Constant.Utf8Info](ci).asString
+    extension [C <: Constant: TypeTest[Constant, *]](ci: ConstantIndex[C])
+      def resolveIndex: C = cf.constants.resolve[C](ci)
 
     ClassModel(
-      r(cf.thisClass),
-      r(cf.superClass),
+      cf.thisClass.resolveIndex.nameIndex.resolveIndex.bytes,
+      cf.superClass.resolveIndex.nameIndex.resolveIndex.bytes,
       cf.fields
         .map(f =>
           FieldModel(
-            r(f.nameIndex),
-            r(f.descriptorIndex),
+            f.nameIndex.resolveIndex.bytes,
+            f.descriptorIndex.resolveIndex.bytes,
             AttributeCodecs.decodeAttrs(f.attributes, cf.constants),
           )
         ),
       cf.methods
         .map(m =>
           MethodModel(
-            r(m.nameIndex),
-            r(m.descriptorIndex),
+            m.nameIndex.resolveIndex.bytes,
+            m.descriptorIndex.resolveIndex.bytes,
             AttributeCodecs.decodeAttrs(m.attributes, cf.constants),
           )
         ),
