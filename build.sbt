@@ -61,8 +61,19 @@ lazy val examples = crossProject(JVMPlatform, JSPlatform, NativePlatform)
   .dependsOn(codecs)
   .enablePlugins(NoPublishPlugin)
 
+lazy val demo = crossProject(JSPlatform)
+  .crossType(CrossType.Pure)
+  .settings(
+    scalaJSUseMainModuleInitializer := true,
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-dom" % "2.2.0",
+      "com.lihaoyi" %%% "scalatags" % "0.12.0",
+    ),
+  )
+  .dependsOn(examples)
+
 lazy val root = tlCrossRootProject
-  .aggregate(core, codecs, examples)
+  .aggregate(core, codecs, examples, demo)
   .settings(
     Compile / doc / sources := Seq(),
     sonatypeProfileName := "org.polyvariant",
