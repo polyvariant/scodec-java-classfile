@@ -32,25 +32,6 @@ case class ClassFile(
   attributes: List[AttributeInfo],
 )
 
-object raw {
-
-  type ??? = Nothing
-
-  case class ClassFile(
-    minorVersion: Int,
-    majorVersion: Int,
-    constants: ConstantPool,
-    accessFlags: Set[ClassAccessFlag],
-    thisClass: ???,
-    superClass: ???,
-    interfaces: List[???],
-    fields: List[FieldInfo],
-    methods: List[MethodInfo],
-    attributes: List[AttributeInfo],
-  )
-
-}
-
 final case class ConstantPool private (private val constants: Array[Constant | Null])
   extends AnyVal {
   // ConstantIndex is 1-based, so we subtract 1
