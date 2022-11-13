@@ -10,6 +10,7 @@ import org.polyvariant.classfile.examples.ExampleCode
 import org.polyvariant.classfile.examples.MethodModel
 import scalatags.JsDom.TypedTag
 import org.polyvariant.classfile.examples.AttributeModel
+import scala.util.Failure
 
 object DemoMain {
 
@@ -50,21 +51,30 @@ object DemoMain {
   def handleBytes(
     bytes: Array[Byte]
   ): Unit = {
-    while (output.firstChild != null)
-      output.removeChild(output.firstChild)
-
-    output.appendChild(p(s"Loaded ", b(bytes.length), " bytes").render)
+    output.replaceChildren(
+      p(s"Loaded ", b(bytes.length), " bytes").render
+    )
 
     val bits = ByteVector(bytes).bits
 
-    val decoded =
+    val decodedE =
       ClassFileCodecs
         .classFile
         .decode(bits)
         .map(_.value)
         .map(ExampleCode.decode)
         .toTry
-        .get
+
+    decodedE match
+      case Failure(e) =>
+        output.appendChild(
+          p(style := "color: red", "Failed to decode file (see console for stack trace)").render
+        )
+        e.printStackTrace()
+        return
+      case _ =>
+
+    val decoded = decodedE.get
 
     output.appendChild(
       div(
