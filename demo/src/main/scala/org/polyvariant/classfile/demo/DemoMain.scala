@@ -33,7 +33,7 @@ object DemoMain {
                     td("max locals: " + c.maxLocals),
                     td("instruction count: " + c.code.length),
                     td("exception table count: " + c.exceptionTable.length),
-                    td("attriute count: " + c.attributes.length),
+                    td("attribute count: " + c.attributes.length),
                   )
                 case _ => td("attribute unknown") :: Nil
               }
