@@ -76,26 +76,28 @@ enum AttributeModel {
 case class LineNumberTableEntry(startPc: Int, lineNumber: Int)
 case class ExceptionTableEntry(startPc: Int, endPc: Int, handlerPc: Int, catchType: Int)
 
-object Examples extends App {
+object Examples {
 
-  pprint.apply(42)
+  def main(args: Array[String]): Unit = {
+    pprint.apply(42)
 
-  val bytes = Files
-    .readAllBytes(Paths.get(args(0)))
-  val bits = ByteVector(bytes).bits
+    val bytes = Files
+      .readAllBytes(Paths.get(args(0)))
+    val bits = ByteVector(bytes).bits
 
-  val decoded = ClassFileCodecs
-    .classFile
-    .decode(bits)
-    .map(_.value)
-    .map(ExampleCode.decode)
-  // .map(_.methods.map(f => f.name -> f.attributes))
+    val decoded = ClassFileCodecs
+      .classFile
+      .decode(bits)
+      .map(_.value)
+      .map(ExampleCode.decode)
+    // .map(_.methods.map(f => f.name -> f.attributes))
 
-  pprint.pprintln(
-    decoded
-      .toTry
-      .get
-  )
+    pprint.pprintln(
+      decoded
+        .toTry
+        .get
+    )
+  }
 
 }
 
@@ -107,9 +109,15 @@ object ExampleCode {
     extension [C <: Constant: TypeTest[Constant, *]](ci: ConstantIndex[C])
       def resolveIndex: C = cf.constants.resolve[C](ci)
 
+    val superclassName =
+      cf.superClass match {
+        case ConstantIndex.Zero() => "java/lang/Object (we _are_ Object)"
+        case other                => other.resolveIndex.nameIndex.resolveIndex.bytes
+      }
+
     ClassModel(
       cf.thisClass.resolveIndex.nameIndex.resolveIndex.bytes,
-      cf.superClass.resolveIndex.nameIndex.resolveIndex.bytes,
+      superclassName,
       cf.fields
         .map(f =>
           FieldModel(

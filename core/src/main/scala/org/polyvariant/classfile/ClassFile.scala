@@ -82,11 +82,16 @@ case class ConstantIndex[C <: Constant](value: Int) {
 
 }
 
-case class ConstantIndexNarrow(value: Short)
-
 object ConstantIndex {
+
+  object Zero {
+    def unapply(i: ConstantIndex[?]): Boolean = i.value == 0
+  }
+
   val init: ConstantIndex[Nothing] = ConstantIndex(1)
 }
+
+case class ConstantIndexNarrow(value: Short)
 
 enum Constant {
 
