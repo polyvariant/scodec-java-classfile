@@ -34,7 +34,7 @@ object ScodecUtils {
       def go(remaining: Int): Decoder[List[A]] =
         remaining match {
           case 0 => Decoder.pure(Nil)
-          case n =>
+          case _ =>
             item
               .flatMap { a =>
                 go(remaining - weight(a)).map(a :: _)

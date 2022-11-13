@@ -19,8 +19,6 @@ package org.polyvariant.classfile
 import scodec.bits.ByteVector
 import scodec.bits._
 
-import java.nio.charset.StandardCharsets
-
 case class ClassFile(
   minorVersion: Int,
   majorVersion: Int,

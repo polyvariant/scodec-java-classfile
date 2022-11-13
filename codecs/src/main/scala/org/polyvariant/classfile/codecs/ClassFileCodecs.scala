@@ -19,13 +19,8 @@ package org.polyvariant.classfile.codecs
 import org.polyvariant.classfile._
 import org.polyvariant.classfile.codecs.ScodecUtils._
 import scodec.Codec
-import scodec.Decoder
-import scodec.Encoder
-import scodec.Err
 import scodec.bits.ByteVector
 import scodec.bits._
-
-import java.nio.charset.StandardCharsets
 
 object ClassFileCodecs {
 

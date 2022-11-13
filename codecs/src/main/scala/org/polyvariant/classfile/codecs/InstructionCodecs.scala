@@ -18,7 +18,6 @@ package org.polyvariant.classfile.codecs
 
 import scodec.Codec
 import org.polyvariant.classfile._
-import scodec.Err
 
 object InstructionCodecs {
   import scodec.bits._
