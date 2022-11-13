@@ -51,6 +51,7 @@ enum AttributeModel {
       case _: Code            => "Code"
       case _: LineNumberTable => "LineNumberTable"
       case _: SourceFile      => "SourceFile"
+      case _: Signature       => "Signature"
       case u: Unsupported     => u.name
     }
 
@@ -71,6 +72,7 @@ enum AttributeModel {
   case SourceFile(name: String)
 
   case Unsupported(name: String, bytes: ByteVector)
+  case Signature(value: String)
 }
 
 case class LineNumberTableEntry(startPc: Int, lineNumber: Int)

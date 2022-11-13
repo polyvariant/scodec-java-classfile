@@ -21,6 +21,21 @@ import org.polyvariant.classfile.codecs.ScodecUtils._
 import scodec.Codec
 import scodec.bits.ByteVector
 import scodec.bits._
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
+import java.io.DataInputStream
+import java.io.ByteArrayInputStream
+
+object demo extends App {
+  import ClassFileCodecs._
+
+  println("expected")
+  println(hex"00 04 6d 61 69 6e".toHexDumpColorized)
+  println("actual")
+  println(utf8Constant.encode(Constant.Utf8Info("main")).require.bytes.toHexDumpColorized)
+  println("decodable?")
+  println(utf8Constant.decode(hex"00 04 6d 61 69 6e".bits).require.value)
+}
 
 object ClassFileCodecs {
 
@@ -52,26 +67,24 @@ object ClassFileCodecs {
     ("name index" | constantPoolIndex[Constant.Utf8Info])
       .as[Constant.ClassInfo]
 
-  // def encodeString(s: String) = {
-  // val charArray = s
-  //   .chars()
-  //   .toArray()
-  // charArray
-  //   .map {
-  //     case b if ('\u0001'.toInt to '\u007F'.toInt).contains(b) =>
-  //       (bin"0" ++ ubyte(7).encode(b.toByte).require).bytes
-  //     case b if b == '\u0000'.toInt || ('\u0080'.toInt to '\u07FF'.toInt).contains(b) =>
-  //       sys.error(s"unsupported #1 ($s): $b")
-  //     case b if ('\u0800'.toInt to '\uFFFF'.toInt).contains(b) =>
-  //       sys.error(s"unsupported #2 ($s): $b")
-  //   }
-  //   .foldLeft(ByteVector.empty)(_ ++ _)
-  // }
+  // these two functions operate on ByteVectors that **aren't** prefixed with the length
+  private def writeModifiedUtf8(s: String): ByteVector = {
+    // mmm
+    val baos = new ByteArrayOutputStream()
+    new DataOutputStream(baos).writeUTF(s)
+
+    ByteVector(baos.toByteArray()).drop(2L)
+  }
+
+  private def readModifiedUtf8(
+    bytes: ByteVector
+  ): String =
+    new DataInputStream((u2.encode(bytes.length.toInt).require.bytes ++ bytes).toInputStream)
+      .readUTF()
 
   val utf8Constant: Codec[Constant.Utf8Info] = ("length" | u2)
-    .consume(bytes(_))(_.size.toInt)
-    // this will need some attention to ensure full compatibility
-    .xmap(bytes => new String(bytes.toArray), s => ByteVector(s.getBytes()))
+    .consume(bytes(_))(_.length.toInt)
+    .xmap(readModifiedUtf8, writeModifiedUtf8)
     .as[Constant.Utf8Info]
 
   val stringConstant: Codec[Constant.StringInfo] =

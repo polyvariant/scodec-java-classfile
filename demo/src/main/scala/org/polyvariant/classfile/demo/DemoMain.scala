@@ -50,7 +50,7 @@ object DemoMain {
         case AttributeModel.Unsupported(name, bytes) =>
           td("attribute unknown: " + s" (0x${bytes.toHex})") :: Nil
 
-        case _ => td("attribute unknown") :: Nil
+        case a => td("attribute unsupported") :: td(a.toString()) :: Nil
       }
 
     tr(td(attr.attrName), extras)
