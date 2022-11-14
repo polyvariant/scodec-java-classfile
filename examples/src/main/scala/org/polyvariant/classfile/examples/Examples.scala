@@ -32,6 +32,7 @@ import java.nio.charset.StandardCharsets
 import scala.reflect.TypeTest
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.util.UUID
 
 case class ClassModel(
   thisClass: String,
@@ -51,7 +52,10 @@ enum AttributeModel {
       case _: Code            => "Code"
       case _: LineNumberTable => "LineNumberTable"
       case _: SourceFile      => "SourceFile"
+      case Deprecated         => "Deprecated"
       case _: Signature       => "Signature"
+      case _: TASTY           => "TASTY"
+      case Scala              => "Scala"
       case u: Unsupported     => u.name
     }
 
@@ -73,6 +77,9 @@ enum AttributeModel {
 
   case Unsupported(name: String, bytes: ByteVector)
   case Signature(value: String)
+  case TASTY(value: UUID)
+  case Deprecated
+  case Scala
 }
 
 case class LineNumberTableEntry(startPc: Int, lineNumber: Int)
@@ -184,16 +191,30 @@ object AttributeCodecs {
       ("line number" | u2)).as[LineNumberTableEntry],
   ).as[AttributeModel.LineNumberTable]
 
-  def sourceFile(
-    cp: ConstantPool
-  ): Codec[AttributeModel.SourceFile] = ("name index" | constantPoolIndex[Constant.Utf8Info])
-    .xmap(
-      cp.resolve[Constant.Utf8Info](_).asString,
-      s =>
-        cp.indexOf[Constant.Utf8Info](Constant.Utf8Info(s))
-          .getOrElse(sys.error(s"constant not found: $s (utf8)")),
-    )
-    .as[AttributeModel.SourceFile]
+  private def constantPoolEntry[C <: Constant: TypeTest[Constant, *]](cp: ConstantPool): Codec[C] =
+    constantPoolIndex[C]
+      .xmap(
+        cp.resolve(_),
+        s =>
+          cp.indexOf[C](s)
+            .getOrElse(sys.error(s"constant not found: $s")),
+      )
+
+  def sourceFile(cp: ConstantPool): Codec[AttributeModel.SourceFile] =
+    constantPoolEntry[Constant.Utf8Info](cp)
+      .as[String]
+      .as[AttributeModel.SourceFile]
+
+  def signature(cp: ConstantPool): Codec[AttributeModel.Signature] =
+    constantPoolEntry[Constant.Utf8Info](cp)
+      .as[String]
+      .as[AttributeModel.Signature]
+
+  private val uuid: Codec[UUID] =
+    (
+      ("most sig bits" | ulong(16)) ::
+        ("least sig bits" | ulong(16))
+    ).xmap(new UUID(_, _), u => (u.getMostSignificantBits(), u.getLeastSignificantBits()))
 
   def attribute(name: String, cp: ConstantPool): Codec[AttributeModel] = {
     val default = bytes
@@ -204,6 +225,10 @@ object AttributeCodecs {
       "Code" -> code(cp).upcast[AttributeModel],
       "LineNumberTable" -> lineNumberTable.upcast[AttributeModel],
       "SourceFile" -> sourceFile(cp).upcast[AttributeModel],
+      "Deprecated" -> provide(AttributeModel.Deprecated),
+      "Signature" -> signature(cp).upcast[AttributeModel],
+      "TASTY" -> uuid.as[AttributeModel.TASTY].upcast[AttributeModel],
+      "Scala" -> provide(AttributeModel.Scala),
     )
       .get(name)
       .getOrElse(default)

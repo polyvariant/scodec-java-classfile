@@ -6,7 +6,12 @@
   <body>
     <h1>Classfile analyzer v0.0.0.0.0.1</h1>
     <h2>Pls upload classfile</h2>
-    <input type="file" id="file_input" accept=".class" />
+    <input
+      type="file"
+      id="file_input"
+      accept=".class"
+      onchange="fileUploaded()"
+    />
     <div id="output"></div>
   </body>
   <style>

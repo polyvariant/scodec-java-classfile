@@ -18,6 +18,7 @@ package org.polyvariant.classfile.codecs
 
 import scodec.Codec
 import org.polyvariant.classfile._
+import scodec.Err
 
 object InstructionCodecs {
   import scodec.bits._
@@ -220,7 +221,7 @@ object InstructionCodecs {
       .singleton(0x21, lload_3)
       .singleton(0x69, lmul)
       .singleton(0x75, lneg)
-      // .typecase(0xab, fail(Err("lookupswitch not supported")))
+      .typecase(0xab, fail(Err("lookupswitch not supported")))
       .singleton(0x81, lor)
       .singleton(0x71, lrem)
       .singleton(0xad, lreturn)
@@ -250,8 +251,8 @@ object InstructionCodecs {
       .singleton(0x56, sastore)
       .typecase(0x11, u2.as[sipush])
       .singleton(0x5f, swap)
-    // .typecase(0xaa, fail(Err("tableswitch not supported")))
-    // .typecase(0xc4, fail(Err("wide not supported")))
+      .typecase(0xaa, fail(Err("tableswitch not supported")))
+      .typecase(0xc4, fail(Err("wide not supported")))
   }
 
 }

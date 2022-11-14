@@ -29,12 +29,7 @@ import java.io.ByteArrayInputStream
 object demo extends App {
   import ClassFileCodecs._
 
-  println("expected")
-  println(hex"00 04 6d 61 69 6e".toHexDumpColorized)
-  println("actual")
-  println(utf8Constant.encode(Constant.Utf8Info("main")).require.bytes.toHexDumpColorized)
-  println("decodable?")
-  println(utf8Constant.decode(hex"00 04 6d 61 69 6e".bits).require.value)
+  println(hex"006404d0000d42000093833165649b00".toHexDumpColorized)
 }
 
 object ClassFileCodecs {
@@ -45,7 +40,9 @@ object ClassFileCodecs {
   val u2: Codec[Int] = uint(16)
   val u4: Codec[Long] = ulong(32)
 
-  def constantPoolIndex[T <: Constant]: Codec[ConstantIndex[T]] = u2.as[ConstantIndex[T]]
+  def constantPoolIndex[
+    T <: Constant
+  ]: Codec[ConstantIndex[T]] = ("pool entry index" | u2).as[ConstantIndex[T]]
 
   val constantPoolIndexNarrow: Codec[ConstantIndexNarrow] = u1.as[ConstantIndexNarrow]
 

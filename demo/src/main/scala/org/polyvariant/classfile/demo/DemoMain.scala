@@ -16,6 +16,7 @@ import scala.scalajs.js.annotation.JSGlobal
 import scala.scalajs.js.annotation.JSExport
 import scala.scalajs.js.annotation.JSExportTopLevel
 import org.scalajs.dom.html.TableRow
+import org.polyvariant.classfile.examples.AttributeModel
 
 @js.native
 @JSGlobal
@@ -47,10 +48,27 @@ object DemoMain {
             td("attributes: ", renderAttributes(c.attributes)),
           )
 
-        case AttributeModel.Unsupported(name, bytes) =>
-          td("attribute unknown: " + s" (0x${bytes.toHex})") :: Nil
+        case AttributeModel.Deprecated       => List(td("yes"))
+        case AttributeModel.Scala            => List(td("yes"))
+        case AttributeModel.Signature(value) => List(td(value))
+        case AttributeModel.SourceFile(name) => List(td(name))
+        case AttributeModel.TASTY(key)       => List(td(key.toString))
 
-        case a => td("attribute unsupported") :: td(a.toString()) :: Nil
+        case AttributeModel.Unsupported(name, bytes) =>
+          td(s"attribute unknown: 0x${bytes.toHex}") :: Nil
+
+        case AttributeModel.LineNumberTable(entries) =>
+          td(
+            table(
+              thead(tr(th("instruction start"), th("line"))),
+              tbody(
+                entries.map { e =>
+                  tr(td(e.startPc), td(e.lineNumber))
+                }
+              ),
+            )
+          ) :: Nil
+        // case a => td("attribute unsupported") :: td(a.toString()) :: Nil
       }
 
     tr(td(attr.attrName), extras)
@@ -110,6 +128,8 @@ object DemoMain {
       div(
         p("Loaded class: " + decoded.thisClass),
         p("Superclass: " + decoded.superClass),
+        p("Constant pool size (allocated): " + decodedFull.constants.declaredSize),
+        p("Attributes:", renderAttributes(decoded.attributes)),
         p("Methods:"),
         table(
           thead(
@@ -133,12 +153,12 @@ object DemoMain {
     Prism.highlightAll()
   }
 
-  def main(args: Array[String]): Unit =
-    fileInput.onchange = { _ =>
-      val file = fileInput.files.item(0)
-      file
-        .arrayBuffer()
-        .`then`(bytes => handleBytes(new Uint8Array(bytes).toArray.map(_.toByte)))
-    }
+  @JSExportTopLevel("fileUploaded")
+  def fileUploaded(): Unit = {
+    val file = fileInput.files.item(0)
+    file
+      .arrayBuffer()
+      .`then`(bytes => handleBytes(new Uint8Array(bytes).toArray.map(_.toByte)))
+  }
 
 }

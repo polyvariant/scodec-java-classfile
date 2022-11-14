@@ -64,11 +64,10 @@ lazy val examples = crossProject(JVMPlatform, JSPlatform, NativePlatform)
 lazy val demo = crossProject(JSPlatform)
   .crossType(CrossType.Pure)
   .settings(
-    scalaJSUseMainModuleInitializer := true,
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-dom" % "2.2.0",
       "com.lihaoyi" %%% "scalatags" % "0.12.0",
-    ),
+    )
   )
   .dependsOn(examples)
 
