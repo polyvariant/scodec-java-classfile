@@ -17,6 +17,8 @@ import scala.scalajs.js.annotation.JSExport
 import scala.scalajs.js.annotation.JSExportTopLevel
 import org.scalajs.dom.html.TableRow
 import org.polyvariant.classfile.examples.AttributeModel
+import org.polyvariant.classfile.examples.ClassModel
+import org.polyvariant.classfile.ClassFile
 
 @js.native
 @JSGlobal
@@ -82,11 +84,9 @@ object DemoMain {
     ),
   )
 
-  def handleBytes(
-    bytes: Array[Byte]
-  ): Unit = {
+  def parseBytes(bytes: Array[Byte]): (ClassFile, ClassModel) = {
     output.replaceChildren(
-      p(s"Loaded ", b(bytes.length), " bytes").render
+      p(s"Read ", b(bytes.length), " bytes").render
     )
 
     val bits = ByteVector(bytes).bits
@@ -103,13 +103,20 @@ object DemoMain {
         output.appendChild(
           p(style := "color: red", "Failed to decode file (see console for stack trace)").render
         )
-        e.printStackTrace()
-        return
+        throw e
       case _ =>
 
     val decodedFull = decodedFullE.get
 
     val decoded = ExampleCode.decode(decodedFull)
+
+    (decodedFull, decoded)
+  }
+
+  def handleBytes(
+    bytes: Array[Byte]
+  ): Unit = {
+    val (decodedFull, decoded) = parseBytes(bytes)
 
     def renderCode(v: Any) = pre(
       code(
@@ -153,12 +160,47 @@ object DemoMain {
     Prism.highlightAll()
   }
 
-  @JSExportTopLevel("fileUploaded")
-  def fileUploaded(): Unit = {
+  private def loadFile(cb: Array[Byte] => Unit) = {
     val file = fileInput.files.item(0)
     file
       .arrayBuffer()
-      .`then`(bytes => handleBytes(new Uint8Array(bytes).toArray.map(_.toByte)))
+      .`then`(bytes => cb(new Uint8Array(bytes).toArray.map(_.toByte)))
+  }
+
+  @JSExportTopLevel("fileUploaded")
+  def fileUploaded(): Unit = loadFile(handleBytes)
+
+  @JSExportTopLevel("fileUploadedSimple")
+  def fileUploadedSimple(): Unit = loadFile { bytes =>
+    val (decodedFull, decoded) = parseBytes(bytes)
+
+    output.appendChild(
+      div(
+        h2("Class " + decoded.thisClass),
+        p("Attributes:"),
+        renderAttributes(decoded.attributes),
+        p("Methods:"),
+        table(
+          thead(
+            tr(th("name"), th("args"), th("instruction count"))
+          ),
+          tbody(
+            decoded.methods.map { meth =>
+              tr(
+                td(meth.name),
+                td(meth.descriptor),
+                td(
+                  meth
+                    .attributes
+                    .collectFirst { case c: AttributeModel.Code => c }
+                    .fold(0)(_.code.size)
+                ),
+              )
+            }
+          ),
+        ),
+      ).render
+    )
   }
 
 }
