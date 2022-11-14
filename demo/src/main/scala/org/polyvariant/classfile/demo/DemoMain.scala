@@ -176,7 +176,7 @@ object DemoMain {
 
     output.appendChild(
       div(
-        h2("Class " + decoded.thisClass),
+        p("Class ", b(decoded.thisClass)),
         p("Attributes:"),
         renderAttributes(decoded.attributes),
         p("Methods:"),
