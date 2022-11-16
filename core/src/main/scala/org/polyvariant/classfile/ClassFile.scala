@@ -48,7 +48,7 @@ final case class ConstantPool private (private val constants: Array[Constant | N
   def indexOf[C <: Constant](constant: C): Option[ConstantIndex[C]] =
     constants.indexOf(constant) match {
       case -1 => None
-      case i  => Some(ConstantIndex(i + 1))
+      case i  => Some(ConstantIndex(Math.addExact(i, 1)))
     }
 
   override def equals(another: Any): Boolean =

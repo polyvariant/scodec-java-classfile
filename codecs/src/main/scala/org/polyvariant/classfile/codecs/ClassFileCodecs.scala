@@ -25,11 +25,14 @@ import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.DataInputStream
 import java.io.ByteArrayInputStream
+import scala.deriving.Mirror
 
 object demo extends App {
   import ClassFileCodecs._
 
-  println(hex"006404d0000d42000093833165649b00".toHexDumpColorized)
+  val m = summon[Mirror.SumOf[Instruction]]
+
+  println(utf8Constant.encode(Constant.Utf8Info("łódź")).require.toHex)
 }
 
 object ClassFileCodecs {
